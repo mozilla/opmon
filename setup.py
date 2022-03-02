@@ -37,13 +37,11 @@ setup(
     url="https://github.com/mozilla/opmon",
     packages=[
         "opmon",
-        "opmon.config",
         "opmon.templates",
         "opmon.tests",
         "opmon.tests.integration",
     ],
     package_data={
-        "opmon.config": ["*.toml"],
         "opmon.templates": ["*.sql"],
         "opmon.tests": ["data/*"],
         "opmon": ["../*.toml"],

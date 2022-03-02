@@ -1,0 +1,2 @@
+class MonitoringConfiguration:
+    project: str

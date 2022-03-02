@@ -2,11 +2,16 @@ import logging
 import os
 import sys
 from datetime import datetime
+from functools import partial
+from multiprocessing.pool import Pool
 from pathlib import Path
 from typing import Iterable
 
 import click
 import pytz
+
+from opmon.config import MonitoringConfiguration
+from opmon.monitoring import Monitoring
 
 from .logging import LogConfiguration
 
@@ -39,6 +44,10 @@ slug_option = click.option(
 
 config_file_option = click.option(
     "--config_file", "--config-file", type=click.File("rt"), hidden=True
+)
+
+parallelism_option = click.option(
+    "--parallelism", "-p", help="Number of processes to run monitoring analysis", default=8
 )
 
 
@@ -89,15 +98,24 @@ def cli(
     required=True,
 )
 @slug_option
+@parallelism_option
 @click.pass_context
-def run(
-    ctx,
-    project_id,
-    dataset_id,
-    date,
-    slug,
-):
-    # todo: run analysis for date
+def run(ctx, project_id, dataset_id, date, slug, parallelism):
+    # todo: get configs from external repo
+    configs = []
+
+    def _run(
+        project_id: str, dataset_id: str, submission_date: datetime, config: MonitoringConfiguration
+    ):
+        monitoring = Monitoring(project_id=project_id, dataset_id=dataset_id, config=config)
+        monitoring.run(submission_date)
+        return True
+
+    run = partial(_run, project_id, dataset_id, date)
+
+    with Pool(parallelism) as pool:
+        pool.map(run, configs)
+
     success = True
     sys.exit(0 if success else 1)
 
