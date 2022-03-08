@@ -9,7 +9,7 @@ class MonitoringPeriod(enum.Enum):
     DAY = "day"
 
 
-@attr.s(frozen=True, slots=True)
+@attr.s(auto_attribs=True)
 class DataSource:
     """Represents a table or view, from which Probes may be monitored.
     Args:
@@ -26,7 +26,7 @@ class DataSource:
     from_expression: str
 
 
-@attr.s(frozen=True, slots=True)
+@attr.s(auto_attribs=True)
 class Probe:
     """Represents a probe to be monitored."""
 
@@ -39,7 +39,7 @@ class Probe:
     type: Optional[str] = None
 
 
-@attr.s(frozen=True, slots=True)
+@attr.s(auto_attribs=True)
 class Dimension:
     """Represents a dimension for segmenting client populations."""
 

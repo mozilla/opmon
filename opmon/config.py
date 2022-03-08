@@ -24,6 +24,7 @@ class DataSourceDefinition:
         return DataSource(**params)
 
 
+@attr.s(auto_attribs=True)
 class DataSourcesSpec:
     """Holds data source definitions.
 
@@ -47,6 +48,11 @@ class DataSourcesSpec:
         self.definitions.update(other.definitions)
 
 
+_converter.register_structure_hook(
+    DataSourcesSpec, lambda obj, _type: DataSourcesSpec.from_dict(obj)
+)
+
+
 @attr.s(auto_attribs=True)
 class DataSourceReference:
     name: str
@@ -56,6 +62,11 @@ class DataSourceReference:
             raise ValueError(f"DataSource {self.name} has not been defined.")
 
         return spec.data_sources.definitions[self.name].resolve(spec)
+
+
+_converter.register_structure_hook(
+    DataSourceReference, lambda obj, _type: DataSourceReference(name=obj)
+)
 
 
 @attr.s(auto_attribs=True)
@@ -83,6 +94,45 @@ class ProbeDefinition:
 
 
 @attr.s(auto_attribs=True)
+class ProbesSpec:
+    """Describes the interface for defining custom probe definitions."""
+
+    definitions: Dict[str, ProbeDefinition] = attr.Factory(dict)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProbesSpec":
+        d = dict((k.lower(), v) for k, v in d.items())
+
+        definitions = {
+            k: _converter.structure({"name": k, **v}, ProbeDefinition) for k, v in d.items()
+        }
+        return cls(definitions=definitions)
+
+    def merge(self, other: "ProbesSpec"):
+        """
+        Merge another probe spec into the current one.
+        The `other` ProbesSpec overwrites existing keys.
+        """
+        self.definitions.update(other.definitions)
+
+
+_converter.register_structure_hook(ProbesSpec, lambda obj, _type: ProbesSpec.from_dict(obj))
+
+
+@attr.s(auto_attribs=True)
+class ProbeReference:
+    name: str
+
+    def resolve(self, spec: "MonitoringSpec") -> List[Probe]:
+        if self.name in spec.probes.definitions:
+            return spec.probes.definitions[self.name].resolve(spec)
+        raise ValueError(f"Could not locate probe {self.name}")
+
+
+_converter.register_structure_hook(ProbeReference, lambda obj, _type: ProbeReference(name=obj))
+
+
+@attr.s(auto_attribs=True)
 class DimensionDefinition:
     """Describes the interface for defining a dimension in configuration."""
 
@@ -103,22 +153,6 @@ class DimensionDefinition:
 
 
 @attr.s(auto_attribs=True)
-class ProbesSpec:
-    """Describes the interface for defining custom probe definitions."""
-
-    definitions: Dict[str, ProbeDefinition] = attr.Factory(dict)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "ProbesSpec":
-        d = dict((k.lower(), v) for k, v in d.items())
-
-        definitions = {
-            k: _converter.structure({"name": k, **v}, ProbeDefinition) for k, v in d.items()
-        }
-        return cls(definitions=definitions)
-
-
-@attr.s(auto_attribs=True)
 class DimensionsSpec:
     """Describes the interface for defining custom dimensions."""
 
@@ -133,15 +167,15 @@ class DimensionsSpec:
         }
         return cls(definitions=definitions)
 
+    def merge(self, other: "DimensionsSpec"):
+        """
+        Merge another dimension spec into the current one.
+        The `other` DimensionsSpec overwrites existing keys.
+        """
+        self.definitions.update(other.definitions)
 
-@attr.s(auto_attribs=True)
-class ProbeReference:
-    name: str
 
-    def resolve(self, spec: "MonitoringSpec") -> List[Probe]:
-        if self.name in spec.probes.definitions:
-            return spec.probes.definitions[self.name].resolve(spec)
-        raise ValueError(f"Could not locate probe {self.name}")
+_converter.register_structure_hook(DimensionsSpec, lambda obj, _type: DimensionsSpec.from_dict(obj))
 
 
 @attr.s(auto_attribs=True)
@@ -152,6 +186,11 @@ class DimensionReference:
         if self.name in spec.dimensions.definitions:
             return spec.dimensions.definitions[self.name].resolve(spec)
         raise ValueError(f"Could not locate dimension {self.name}")
+
+
+_converter.register_structure_hook(
+    DimensionReference, lambda obj, _type: DimensionReference(name=obj)
+)
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -179,6 +218,10 @@ class PopulationSpec:
             or ([branch.slug for branch in experiment.branches] if experiment else []),
         )
 
+    def merge(self, other: "PopulationSpec") -> None:
+        for key in attr.fields_dict(type(self)):
+            setattr(self, key, getattr(other, key) or getattr(self, key))
+
 
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectConfiguration:
@@ -203,11 +246,16 @@ def _parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectSpec:
     name: Optional[str] = None
-    xaxis: MonitoringPeriod = attr.ib(default=MonitoringPeriod.DAY)
+    xaxis: Optional[MonitoringPeriod] = None
     start_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     end_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     probes: List[ProbeReference] = attr.Factory(list)
     population: PopulationSpec = attr.Factory(PopulationSpec)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ProjectSpec":
+        d = dict((k.lower(), v) for k, v in d.items())
+        return _converter.structure(d, cls)
 
     def resolve(
         self, spec: "MonitoringSpec", experiment: Optional[Experiment]
@@ -216,11 +264,20 @@ class ProjectSpec:
 
         return ProjectConfiguration(
             name=self.name or (experiment.name if experiment else None),
-            xaxis=self.xaxis,
-            start_date=self.start_date or (experiment.start_date if experiment else None),
-            end_date=self.end_date or (experiment.end_date if experiment else None),
+            xaxis=self.xaxis or MonitoringPeriod.DAY,
+            start_date=_parse_date(
+                self.start_date or (experiment.start_date if experiment else None)
+            ),
+            end_date=_parse_date(self.end_date or (experiment.end_date if experiment else None)),
             population=self.population.resolve(spec, experiment),
         )
+
+    def merge(self, other: "ProjectSpec") -> None:
+        for key in attr.fields_dict(type(self)):
+            if key == "population":
+                self.population.merge(other.population)
+            else:
+                setattr(self, key, getattr(other, key) or getattr(self, key))
 
 
 @attr.s(auto_attribs=True)
@@ -268,7 +325,7 @@ class MonitoringSpec:
 
         # filter to only have probes that actually need to be monitored
         probes = []
-        for probe_ref in self.project.probes:
+        for probe_ref in {p.name for p in self.project.probes}:
             if probe_ref in self.probes.definitions:
                 probes.append(self.probes.definitions[probe_ref].resolve(self))
             else:
@@ -276,7 +333,7 @@ class MonitoringSpec:
 
         # filter to only have dimensions that actually are in use
         dimensions = []
-        for dimension_ref in self.project.population.dimensions:
+        for dimension_ref in {d.name for d in self.project.population.dimensions}:
             if dimension_ref in self.dimensions.definitions:
                 dimensions.append(self.dimensions.definitions[dimension_ref].resolve(self))
             else:
@@ -287,3 +344,10 @@ class MonitoringSpec:
             probes=probes,
             dimensions=dimensions,
         )
+
+    def merge(self, other: "MonitoringSpec"):
+        """Merges another monitoring spec into the current one."""
+        self.project.merge(other.project)
+        self.data_sources.merge(other.data_sources)
+        self.probes.merge(other.probes)
+        self.dimensions.merge(other.dimensions)
