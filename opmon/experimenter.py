@@ -219,12 +219,9 @@ class ExperimentCollection:
             ]
         )
 
-    def with_slug(self, slug: str) -> "ExperimentCollection":
-        cls = type(self)
-        return cls(
-            [
-                ex
-                for ex in self.experiments
-                if ex.experimenter_slug == slug or ex.normandy_slug == slug
-            ]
-        )
+    def with_slug(self, slug: str) -> Optional[Experiment]:
+        for ex in self.experiments:
+            if ex.experimenter_slug == slug or ex.normandy_slug == slug:
+                return ex
+
+        return None

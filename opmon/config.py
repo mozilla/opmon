@@ -246,6 +246,7 @@ def _parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectSpec:
     name: Optional[str] = None
+    platform: Optional[str] = None
     xaxis: Optional[MonitoringPeriod] = None
     start_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     end_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)

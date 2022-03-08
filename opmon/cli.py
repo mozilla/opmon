@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 from multiprocessing.pool import Pool
 from pathlib import Path
@@ -10,12 +10,17 @@ from typing import Iterable
 import click
 import pytz
 
+from opmon.external_config import ExternalConfigCollection
 from opmon.config import MonitoringConfiguration
+from opmon.experimenter import ExperimentCollection
 from opmon.monitoring import Monitoring
 
 from .logging import LogConfiguration
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_PLATFORM = "firefox_desktop"
 
 
 class ClickDate(click.ParamType):
@@ -101,8 +106,34 @@ def cli(
 @parallelism_option
 @click.pass_context
 def run(ctx, project_id, dataset_id, date, slug, parallelism):
-    # todo: get configs from external repo
+    external_configs = ExternalConfigCollection.from_github_repo()
+    platform_definitions = external_configs.definitions
+    experiments = ExperimentCollection.from_experimenter().ever_launched()
+
+    # get and resolve configs for projects
     configs = []
+    for external_config in external_configs.configs:
+        experiment = experiments.with_slug(external_config.slug)
+        platform = external_config.spec.platform or experiment.app_name or DEFAULT_PLATFORM
+
+        if platform not in external_config.definitions:
+            logger.exception(
+                str(f"Invalid platform {platform}"),
+                exc_info=None,
+                extra={"experiment": experiment.normandy_slug},
+            )
+            continue
+
+        platform_definitions = external_config.definitions[platform]
+        spec = external_config.spec
+        spec.merge(platform_definitions)
+        configs.append(spec.resolve(experiment))
+
+    # filter out projects that have finished or not started
+    prior_date = date - timedelta(days=1)
+    configs = [
+        cfg for cfg in configs if cfg.start_date <= prior_date and cfg.end_date >= prior_date
+    ]
 
     def _run(
         project_id: str, dataset_id: str, submission_date: datetime, config: MonitoringConfiguration

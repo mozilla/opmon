@@ -5,7 +5,7 @@ Opmon configuration files are stored in https://github.com/mozilla/opmon-config/
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import attr
 import toml
@@ -48,7 +48,7 @@ class ExternalConfigCollection:
     """
 
     configs: List[ExternalConfig] = attr.Factory(list)
-    definitions: List[ExternalConfig] = attr.Factory(list)
+    definitions: Dict[str, ExternalConfig] = attr.Factory(dict)
 
     CONFIG_URL = "https://github.com/mozilla/opmon-config"
 
@@ -72,11 +72,9 @@ class ExternalConfigCollection:
             definitions = []
 
             for definition_file in tmp_dir.glob(f"**/{DEFINITIONS_DIR}/*.toml"):
-                definitions.append(
-                    ExternalConfig(
-                        slug=definition_file.stem,
-                        spec=MonitoringSpec.from_dict(toml.load(definition_file)),
-                    )
+                definitions[definition_file.stem] = ExternalConfig(
+                    slug=definition_file.stem,
+                    spec=MonitoringSpec.from_dict(toml.load(definition_file)),
                 )
 
         return cls(external_configs, definitions)
