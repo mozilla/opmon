@@ -1,10 +1,8 @@
 import datetime as dt
 import json
 from datetime import timedelta
-from pathlib import Path
 from unittest.mock import MagicMock
 
-import jsonschema
 import pytest
 import pytz
 
@@ -380,6 +378,7 @@ def test_convert_experiment_v1_to_experiment():
     experiment_v1 = ExperimentV1(
         slug="test-slug",
         normandy_slug="test_slug",
+        name="Test",
         status="Live",
         type="cfr",
         start_date=dt.datetime(2019, 1, 1),
@@ -405,6 +404,7 @@ def test_convert_experiment_v1_to_experiment():
 def test_convert_experiment_v6_to_experiment():
     experiment_v6 = ExperimentV6(
         slug="test_slug",
+        userFacingName="Test",
         startDate=dt.datetime(2019, 1, 1),
         endDate=dt.datetime(2019, 1, 10),
         branches=[Branch(slug="control", ratio=2), Branch(slug="treatment", ratio=1)],
@@ -423,11 +423,11 @@ def test_convert_experiment_v6_to_experiment():
     assert experiment.channel is None
 
 
-
 def test_experiment_v6_status():
     experiment_live = ExperimentV6(
         slug="test_slug",
         startDate=dt.datetime(2019, 1, 1),
+        userFacingName="Test",
         endDate=dt.datetime.now() + timedelta(days=1),
         branches=[Branch(slug="control", ratio=2), Branch(slug="treatment", ratio=1)],
         referenceBranch="control",
@@ -438,6 +438,7 @@ def test_experiment_v6_status():
     experiment_complete = ExperimentV6(
         slug="test_slug",
         startDate=dt.datetime(2019, 1, 1),
+        userFacingName="Test",
         endDate=dt.datetime.now() - timedelta(minutes=1),
         branches=[Branch(slug="control", ratio=2), Branch(slug="treatment", ratio=1)],
         referenceBranch="control",

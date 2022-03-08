@@ -1,7 +1,7 @@
-import attr
 import enum
-
 from typing import Optional
+
+import attr
 
 
 class MonitoringPeriod(enum.Enum):

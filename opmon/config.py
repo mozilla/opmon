@@ -1,15 +1,12 @@
-import enum
-from optparse import Option
-from typing import Mapping
-from unicodedata import category
+from datetime import datetime
+from typing import Any, Dict, List, Mapping, Optional
+
 import attr
 import cattr
-from httplib2 import ProxyInfo
 import pytz
-from datetime import datetime
-from typing import Any, Optional, List, Dict
 
-from opmon import MonitoringPeriod, DataSource, Probe, Dimension
+from opmon import DataSource, Dimension, MonitoringPeriod, Probe
+from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
 
@@ -159,29 +156,33 @@ class DimensionReference:
 
 @attr.s(auto_attribs=True, kw_only=True)
 class PopulationConfiguration:
-    data_source: DataSource
+    data_source: Optional[DataSource] = None
     boolean_pref: Optional[str] = None
     branches: List[str] = attr.Factory(list)
 
 
 @attr.s(auto_attribs=True, kw_only=True)
 class PopulationSpec:
-    data_source: DataSourceReference
+    data_source: Optional[DataSourceReference] = None
     boolean_pref: Optional[str] = None
     branches: List[str] = attr.Factory(list)
     dimensions: List[DimensionReference] = attr.Factory(list)
 
-    def resolve(self, spec: "MonitoringSpec") -> PopulationConfiguration:
+    def resolve(
+        self, spec: "MonitoringSpec", experiment: Optional[Experiment]
+    ) -> PopulationConfiguration:
         """Create a `PopulationConfiguration` from the spec."""
         return PopulationConfiguration(
-            data_source=self.data_source.resolve(spec),
-            boolean_pref=self.boolean_pref,
-            branches=self.branches,
+            data_source=self.data_source.resolve(spec) if self.data_source else None,
+            boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
+            branches=self.branches
+            or ([branch.slug for branch in experiment.branches] if experiment else []),
         )
 
 
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectConfiguration:
+    name: Optional[str] = None
     xaxis: MonitoringPeriod = attr.ib(default=MonitoringPeriod.DAY)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -189,7 +190,14 @@ class ProjectConfiguration:
 
 
 def _validate_yyyy_mm_dd(instance: Any, attribute: Any, value: Any) -> None:
-    instance.parse_date(value)
+    _parse_date(value)
+
+
+def _parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
+    """Convert a date string to a date type."""
+    if not yyyy_mm_dd:
+        return None
+    return datetime.strptime(yyyy_mm_dd, "%Y-%m-%d").replace(tzinfo=pytz.utc)
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -201,15 +209,17 @@ class ProjectSpec:
     probes: List[ProbeReference] = attr.Factory(list)
     population: PopulationSpec = attr.Factory(PopulationSpec)
 
-    def resolve(self, spec: "MonitoringSpec") -> ProjectConfiguration:
+    def resolve(
+        self, spec: "MonitoringSpec", experiment: Optional[Experiment]
+    ) -> ProjectConfiguration:
         """Create a `ProjectConfiguration` from the spec."""
 
         return ProjectConfiguration(
-            name=self.name,
+            name=self.name or (experiment.name if experiment else None),
             xaxis=self.xaxis,
-            start_date=self.start_date,
-            end_date=self.end_date,
-            population=self.population.resolve(spec),
+            start_date=self.start_date or (experiment.start_date if experiment else None),
+            end_date=self.end_date or (experiment.end_date if experiment else None),
+            population=self.population.resolve(spec, experiment),
         )
 
 
@@ -222,7 +232,7 @@ class MonitoringConfiguration:
     Instead of instantiating this directly, consider using MonitoringSpec.resolve().
     """
 
-    project: ProjectConfiguration = attr.Factory(ProjectConfiguration)
+    project: Optional[ProjectConfiguration] = None
     probes: Dict[str, Probe] = attr.Factory(dict)
     dimensions: Dict[str, Dimension] = attr.Factory(dict)
 
@@ -249,14 +259,7 @@ class MonitoringSpec:
         d = dict((k.lower(), v) for k, v in d.items())
         return _converter.structure(d, cls)
 
-    @staticmethod
-    def parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
-        """Convert a date string to a date type."""
-        if not yyyy_mm_dd:
-            return None
-        return datetime.strptime(yyyy_mm_dd, "%Y-%m-%d").replace(tzinfo=pytz.utc)
-
-    def resolve(self) -> MonitoringConfiguration:
+    def resolve(self, experiment: Optional[Experiment] = None) -> MonitoringConfiguration:
         """Create a `MonitoringConfiguration` from the spec."""
         if self._resolved:
             raise Exception("Can't resolve an MonitoringSpec twice")
@@ -280,5 +283,7 @@ class MonitoringSpec:
                 raise ValueError(f"No definition for dimension {dimension_ref}.")
 
         return MonitoringConfiguration(
-            project=self.project.resolve(self), probes=probes, dimensions=dimensions
+            project=self.project.resolve(self, experiment) if self.project else None,
+            probes=probes,
+            dimensions=dimensions,
         )

@@ -1,6 +1,6 @@
 import datetime as dt
 import logging
-from typing import Iterable, List, Optional, Union
+from typing import List, Optional
 
 import attr
 import cattr
@@ -33,6 +33,7 @@ class Experiment:
 
     experimenter_slug: Optional[str]
     normandy_slug: Optional[str]
+    name: Optional[str]
     type: str
     status: Optional[str]
     branches: List[Branch]
@@ -52,6 +53,7 @@ class ExperimentV1:
     slug: str  # experimenter slug
     type: str
     status: str
+    name: Optional[str]
     start_date: Optional[dt.datetime]
     end_date: Optional[dt.datetime]
     variants: List[Variant]
@@ -86,6 +88,7 @@ class ExperimentV1:
         return Experiment(
             normandy_slug=self.normandy_slug,
             experimenter_slug=self.slug,
+            name=self.name,
             type=self.type,
             status=self.status,
             start_date=self.start_date,
@@ -108,6 +111,7 @@ class ExperimentV6:
     startDate: Optional[dt.datetime]
     endDate: Optional[dt.datetime]
     referenceBranch: Optional[str]
+    userFacingName: Optional[str]
     _appName: Optional[str] = None
     _appId: Optional[str] = None
 
@@ -144,6 +148,7 @@ class ExperimentV6:
         return Experiment(
             normandy_slug=self.slug,
             experimenter_slug=None,
+            name=self.userFacingName,
             type="v6",
             status="Live"
             if (

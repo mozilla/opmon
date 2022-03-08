@@ -2,7 +2,6 @@
 
 import os
 from datetime import datetime
-from multiprocessing.sharedctypes import Value
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +11,6 @@ from google.cloud import bigquery
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
 from .logging import LogConfiguration
-from .utils import bq_normalize_name
 
 PATH = Path(os.path.dirname(__file__))
 
