@@ -5,14 +5,14 @@ from datetime import datetime, timedelta
 from functools import partial
 from multiprocessing.pool import Pool
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import click
 import pytz
 
-from opmon.external_config import ExternalConfigCollection
 from opmon.config import MonitoringConfiguration
 from opmon.experimenter import ExperimentCollection
+from opmon.external_config import ExternalConfigCollection
 from opmon.monitoring import Monitoring
 
 from .logging import LogConfiguration
@@ -35,11 +35,16 @@ class ClickDate(click.ParamType):
 project_id_option = click.option(
     "--project_id",
     "--project-id",
-    default="moz-fx-data-experiments",
+    default="moz-fx-shared-prod",
     help="Project to write to",
 )
 dataset_id_option = click.option(
-    "--dataset_id", "--dataset-id", default="mozanalysis", help="Dataset to write to", required=True
+    "--dataset_id",
+    "--dataset-id",
+    default="operational_monitoring",
+    help="Publicly accessible dataset to write to. "
+    + "Tables will get written to corresponding _derived dataset",
+    required=True,
 )
 
 slug_option = click.option(
@@ -127,18 +132,25 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
         platform_definitions = external_config.definitions[platform]
         spec = external_config.spec
         spec.merge(platform_definitions)
-        configs.append(spec.resolve(experiment))
+        configs.append((external_config.slug, spec.resolve(experiment)))
 
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
-    configs = [
-        cfg for cfg in configs if cfg.start_date <= prior_date and cfg.end_date >= prior_date
-    ]
+    configs = {
+        (k, cfg)
+        for (k, cfg) in configs
+        if cfg.start_date <= prior_date and cfg.end_date >= prior_date
+    }
 
     def _run(
-        project_id: str, dataset_id: str, submission_date: datetime, config: MonitoringConfiguration
+        project_id: str,
+        dataset_id: str,
+        submission_date: datetime,
+        config: Tuple[str, MonitoringConfiguration],
     ):
-        monitoring = Monitoring(project_id=project_id, dataset_id=dataset_id, config=config)
+        monitoring = Monitoring(
+            project_id=project_id, dataset_id=dataset_id, slug=config[0], config=config[1]
+        )
         monitoring.run(submission_date)
         return True
 

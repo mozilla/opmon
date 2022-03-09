@@ -7,6 +7,8 @@ import cattr
 import pytz
 import requests
 
+from opmon import Channel
+
 from .utils import retry_get
 
 logger = logging.getLogger(__name__)
@@ -43,7 +45,7 @@ class Experiment:
     app_name: str
     app_id: str
     boolean_pref: Optional[str]
-    channel: Optional[str]
+    channel: Optional[Channel]
 
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True, frozen=True)
@@ -98,7 +100,7 @@ class ExperimentV1:
             app_name="firefox_desktop",
             app_id="firefox-desktop",
             boolean_pref=self.pref_name,
-            channel=self.firefox_channel,
+            channel=Channel(self.firefox_channel.lower()) if self.firefox_channel else None,
         )
 
 
@@ -114,6 +116,7 @@ class ExperimentV6:
     userFacingName: Optional[str]
     _appName: Optional[str] = None
     _appId: Optional[str] = None
+    channel: Optional[str] = None
 
     @property
     def appName(self) -> str:
@@ -164,7 +167,7 @@ class ExperimentV6:
             app_name=self.appName,
             app_id=self.appId,
             boolean_pref=None,
-            channel=None,
+            channel=Channel(self.channel) if self.channel else None,
         )
 
 

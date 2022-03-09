@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 import pytz
 
+from opmon import Channel
 from opmon.experimenter import (
     Branch,
     Experiment,
@@ -356,22 +357,17 @@ def test_normandy_experiment_slug(experiment_collection):
 
 
 def test_with_slug(experiment_collection):
-    experiments = experiment_collection.with_slug("search-topsites")
-    assert len(experiments.experiments) == 1
-    assert experiments.experiments[0].experimenter_slug == "search-topsites"
+    experiment = experiment_collection.with_slug("search-topsites")
+    assert experiment.experimenter_slug == "search-topsites"
 
-    experiments = experiment_collection.with_slug(
+    experiment = experiment_collection.with_slug(
         "addon-activity-stream-search-topsites-release-69-1576277"
     )
-    assert len(experiments.experiments) == 1
-    assert experiments.experiments[0].experimenter_slug == "search-topsites"
-    assert (
-        experiments.experiments[0].normandy_slug
-        == "addon-activity-stream-search-topsites-release-69-1576277"
-    )
+    assert experiment.experimenter_slug == "search-topsites"
+    assert experiment.normandy_slug == "addon-activity-stream-search-topsites-release-69-1576277"
 
-    experiments = experiment_collection.with_slug("non-existing-slug")
-    assert len(experiments.experiments) == 0
+    experiment = experiment_collection.with_slug("non-existing-slug")
+    assert experiment is None
 
 
 def test_convert_experiment_v1_to_experiment():
@@ -398,7 +394,7 @@ def test_convert_experiment_v1_to_experiment():
     assert len(experiment.branches) == 2
     assert experiment.reference_branch == "control"
     assert experiment.boolean_pref == "test"
-    assert experiment.channel == "release"
+    assert experiment.channel == Channel.RELEASE
 
 
 def test_convert_experiment_v6_to_experiment():
@@ -431,6 +427,7 @@ def test_experiment_v6_status():
         endDate=dt.datetime.now() + timedelta(days=1),
         branches=[Branch(slug="control", ratio=2), Branch(slug="treatment", ratio=1)],
         referenceBranch="control",
+        channel=None,
     )
 
     assert experiment_live.to_experiment().status == "Live"
@@ -442,6 +439,7 @@ def test_experiment_v6_status():
         endDate=dt.datetime.now() - timedelta(minutes=1),
         branches=[Branch(slug="control", ratio=2), Branch(slug="treatment", ratio=1)],
         referenceBranch="control",
+        channel="release",
     )
 
     assert experiment_complete.to_experiment().status == "Complete"

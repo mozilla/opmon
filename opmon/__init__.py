@@ -9,6 +9,12 @@ class MonitoringPeriod(enum.Enum):
     DAY = "day"
 
 
+class Channel(enum.Enum):
+    NIGHTLY = "nightly"
+    BETA = "beta"
+    RELEASE = "release"
+
+
 @attr.s(auto_attribs=True)
 class DataSource:
     """Represents a table or view, from which Probes may be monitored.

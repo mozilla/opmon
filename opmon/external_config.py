@@ -69,7 +69,7 @@ class ExternalConfigCollection:
                     )
                 )
 
-            definitions = []
+            definitions = {}
 
             for definition_file in tmp_dir.glob(f"**/{DEFINITIONS_DIR}/*.toml"):
                 definitions[definition_file.stem] = ExternalConfig(

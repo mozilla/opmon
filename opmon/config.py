@@ -5,7 +5,7 @@ import attr
 import cattr
 import pytz
 
-from opmon import DataSource, Dimension, MonitoringPeriod, Probe
+from opmon import Channel, DataSource, Dimension, MonitoringPeriod, Probe
 from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
@@ -197,6 +197,7 @@ _converter.register_structure_hook(
 class PopulationConfiguration:
     data_source: Optional[DataSource] = None
     boolean_pref: Optional[str] = None
+    channel: Channel = attr.ib(default=Channel.NIGHTLY)
     branches: List[str] = attr.Factory(list)
 
 
@@ -204,6 +205,7 @@ class PopulationConfiguration:
 class PopulationSpec:
     data_source: Optional[DataSourceReference] = None
     boolean_pref: Optional[str] = None
+    channel: Optional[Channel] = None
     branches: List[str] = attr.Factory(list)
     dimensions: List[DimensionReference] = attr.Factory(list)
 
@@ -214,6 +216,7 @@ class PopulationSpec:
         return PopulationConfiguration(
             data_source=self.data_source.resolve(spec) if self.data_source else None,
             boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
+            channel=self.channel or (experiment.channel if experiment else None),
             branches=self.branches
             or ([branch.slug for branch in experiment.branches] if experiment else []),
         )
