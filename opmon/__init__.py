@@ -30,6 +30,9 @@ class DataSource:
 
     name: str
     from_expression: str
+    submission_date_column: str
+    build_id_column: str
+    client_id_column: str
 
 
 @attr.s(auto_attribs=True)

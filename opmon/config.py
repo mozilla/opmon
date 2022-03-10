@@ -17,10 +17,19 @@ class DataSourceDefinition:
 
     name: str  # implicit in configuration
     from_expression: str
+    submission_date_column: str = "submission_date"
+    build_id_column: str = "SAFE.SUBSTR(application.build_id, 0, 8)"
+    client_id_column: str = "client_id"
 
     def resolve(self, spec: "MonitoringSpec") -> DataSource:
         """Create the `DataSource` representation."""
-        params: Dict[str, Any] = {"name": self.name, "from_expression": self.from_expression}
+        params: Dict[str, Any] = {
+            "name": self.name,
+            "from_expression": self.from_expression,
+            "submission_date_column": self.submission_date_column,
+            "build_id_column": self.build_id_column,
+            "client_id_column": self.client_id_column
+        }
         return DataSource(**params)
 
 

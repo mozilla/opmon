@@ -30,6 +30,7 @@ class BigQueryClient:
         write_disposition: Optional[bigquery.job.WriteDisposition] = None,
         clustering: Optional[List[str]] = None,
         time_partitioning: Optional[str] = None,
+        partition_expiration_ms: Optional[int] = None,
     ) -> None:
         dataset = bigquery.dataset.DatasetReference.from_string(
             self.dataset,
@@ -51,7 +52,12 @@ class BigQueryClient:
             kwargs["clustering_fields"] = clustering
 
         if time_partitioning:
-            kwargs["time_partitioning"] = bigquery.TimePartitioning(field="submission_date")
+            if partition_expiration_ms:
+                kwargs["time_partitioning"] = bigquery.TimePartitioning(
+                    field=time_partitioning, expiration_ms=partition_expiration_ms
+                )
+            else:
+                kwargs["time_partitioning"] = bigquery.TimePartitioning(field=time_partitioning)
 
         config = bigquery.job.QueryJobConfig(default_dataset=dataset, **kwargs)
         job = self.client.query(query, config)

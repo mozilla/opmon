@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import attr
 from jinja2 import Environment, FileSystemLoader
 
-from . import Channel
+from . import Channel, MonitoringPeriod
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
 from .logging import LogConfiguration
@@ -21,6 +21,7 @@ QUERY_FILENAME = "{}_query.sql"
 VIEW_FILENAME = "{}_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
+DEFAULT_PARTITION_EXPIRATION = 432000000  # 5 days
 
 # See https://github.com/mozilla/glam/issues/1575#issuecomment-946880387
 # for reference of where these numbers come from.
@@ -85,11 +86,24 @@ class Monitoring:
         # if the data is for a build over build analysis but the entire table is
         # replaced if it's a submission date analysis.
 
+        # group probes that are part of the same dataset
+        # necessary for creating the SQL template
+        probes_per_dataset = {}
+        for probe in self.config.probes:
+            if probe.data_source.name not in probes_per_dataset:
+                probes_per_dataset[probe.data_source.name] = [probe]
+            else:
+                probes_per_dataset[probe.data_source.name].append(probe)
+
         render_kwargs = {
             "header": "-- Generated via opmon\n",
             "gcp_project": self.project,
             "submission_date": submission_date,
+            "config": self.project,
             "dataset": self.dataset,
+            "first_run": True,  # todo: check if table exists
+            "dimensions": self.config.dimensions,
+
             "branches": self.config.project.population.branches,
             "channel": str(self.config.project.population.channel),
             "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
@@ -100,15 +114,23 @@ class Monitoring:
             else None,
             "xaxis": str(self.config.project.xaxis),
             "start_date": self.config.project.start_date.strftime("%Y-%m-%d"),
-            "data_source": self.config.project.population.data_source,
-            "probes": probes,
+            "population_source": self.config.project.population.data_source,
+            "probes_per_dataset": probes_per_dataset,
             "slug": self.slug,
         }
+
+        partition_expiration_ms = None
+        if self.config.project.xaxis != MonitoringPeriod.DAY:
+            partition_expiration_ms = DEFAULT_PARTITION_EXPIRATION
 
         sql_filename = QUERY_FILENAME.format(data_type)
         sql = self._render_sql(sql_filename, render_kwargs)
         self.bigquery.execute(
-            sql, destination_table, clustering=["build_id"], time_partitioning="submission_date"
+            sql,
+            destination_table,
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            partition_expiration_ms=partition_expiration_ms,
         )
         self._publish_view(data_type)
 
@@ -125,6 +147,7 @@ class Monitoring:
             "gcp_project": self.project,
             "dataset": self.dataset,
             "slug": self.slug,
+            "start_date": self.config.project.start_date.strftime("%Y-%m-%d"),
         }
         sql = self._render_sql(sql_filename, render_kwargs)
         self.bigquery.execute(sql)

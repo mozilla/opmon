@@ -1,42 +1,52 @@
 {{ header }}
 
-WITH merged_scalars AS (
+WITH population AS (
     SELECT
-        {% if xaxis == "submission_date" %}
-        DATE(submission_timestamp) AS submission_date,
-        {% else %}
-        @submission_date AS submission_date,
-        {% endif %}
-        client_id,
-        SAFE.SUBSTR(application.build_id, 0, 8) AS build_id,
+        DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
+        {{ config.population.data_source.client_id_column }} AS client_id,
+        {{ config.population.data_source.build_id_column }} AS build_id,
         {% for dimension in dimensions %}
-          CAST({{ dimension.sql }} AS STRING) AS {{ dimension.name }},
+          CAST({{ dimension.select_expression }} AS STRING) AS {{ dimension.name }},
         {% endfor %}
 
         -- If a pref is defined, treat it as a rollout with an enabled and disabled branch.
         -- If branches are provided, use those instead.
         -- If neither a pref or branches are available, use the slug and treat it as a rollout
         -- where those with the slug have the feature enabled and those without do not.
-        {% if pref %}
-        CASE
-          WHEN SAFE_CAST({{pref}} as BOOLEAN) THEN 'enabled'
-          WHEN NOT SAFE_CAST({{pref}} as BOOLEAN) THEN 'disabled'
-        END
-        AS branch,
-        {% elif branches %}
+        {% if config.population.branches != [] %}
         mozfun.map.get_key(
           environment.experiments,
-          "{{slug}}"
+          "{{ slug }}"
         ).branch AS branch,
+        {% elif config.population.boolean_pref %}
+        CASE
+          WHEN SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'enabled'
+          WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
+        END
+        AS branch,
         {% else %}
-          CASE WHEN
-            mozfun.map.get_key(
-              environment.experiments,
-              "{{slug}}"
-            ).branch IS NULL THEN 'disabled'
-          ELSE 'enabled'
-          END AS branch,
+          NULL AS branch,
         {% endif %}
+    FROM
+        `{{ config.population.data_source.from_expression }}`
+    WHERE
+        DATE({{ config.population.data_source.submission_date_column }}) = '{{ submission_date }}'
+        AND normalized_channel = '{{ config.population.channel }}'
+    GROUP BY
+        submission_date,
+        client_id,
+        build_id,
+        {% for dimension in dimensions %}
+          {{ dimension.name }},
+        {% endfor %}
+        branch
+),
+
+{% for data_source, probes in probes_per_dataset %}
+merged_scalars_{{ data_source }} AS (
+    SELECT
+        DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
+        {{ config.population.data_source.client_id_column }} AS client_id,
         ARRAY<
             STRUCT<
                 name STRING,
@@ -48,64 +58,65 @@ WITH merged_scalars AS (
             (
                 "{{ probe.name }}",
                 "MAX",
-                MAX(CAST({{ probe.sql }} AS INT64))
+                MAX(CAST({{ probe.select_expression }} AS INT64))
             ),
             (
                 "{{ probe.name }}",
                 "SUM",
-                SUM(CAST({{ probe.sql }} AS INT64))
+                SUM(CAST({{ probe.select_expression }} AS INT64))
             )
             {{ "," if not loop.last else "" }}
           {% endfor %}
         ] AS metrics,
     FROM
-        `{{source}}`
+        `{{ probes[0].data_source.from_expression }}`
     WHERE
-        DATE(submission_timestamp) >= DATE_SUB(@submission_date, INTERVAL 60 DAY)
-    AND normalized_channel = '{{channel}}'
+        {{ config.population.data_source.submission_date_column }} = '{{ submission_date }}'
     GROUP BY
         submission_date,
-        client_id,
-        build_id,
-        {% for dimension in dimensions %}
-          {{ dimension.name }},
-        {% endfor %}
-        branch
+        client_id
 ),
-
+{% endfor %}
+joined_scalars AS (
+  SELECT
+    population.submission_date AS submission_date,
+    population.client_id AS client_id,
+    population,build_id,
+    {% for dimension in dimensions %}
+      population.{{ dimension.name }} AS {{ dimension.name }},
+    {% endfor %}
+    population.branch AS branch,
+    ARRAY_CONCAT(
+      {% for data_source, probes in probes_per_dataset %}
+        merged_scalars_{{ data_source }}.metrics
+      {% endfor %}
+    )
+  FROM population
+  {% for data_source, probes in probes_per_dataset %}
+  LEFT JOIN merged_scalars_{{ data_source }}
+  USING(submission_date, client_id)
+  {% endfor %}
+),
 flattened_scalars AS (
     SELECT *
-    FROM merged_scalars
+    FROM joined_scalars
     CROSS JOIN UNNEST(metrics)
+    {% if config.population.branches != [] or config.population.boolean_pref %}
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
         -- and fall back to branches labeled as enabled/disabled
-        {% if branches %}
-        {% for branch in branches %}
+        {% if config.population.branches != [] %}
+        {% for branch in config.population.branches %}
           "{{ branch }}"
           {{ "," if not loop.last else "" }}
         {% endfor %}
-        {% else %}
+        {% elif config.population.boolean_pref %}
         "enabled", "disabled"
         {% endif %}
     )
+    {% endif %}
 ),
-
-log_min_max AS (
-  SELECT
-    name,
-    LOG(IF(MIN(value) <= 0, 1, MIN(value)), 2) log_min,
-    LOG(IF(MAX(value) <= 0, 1, MAX(value)), 2) log_max
-  FROM
-    flattened_scalars
-  GROUP BY 1),
-
-buckets_by_metric AS (
-  SELECT name, ARRAY(SELECT FORMAT("%.*f", 2, bucket) FROM UNNEST(
-    mozfun.glam.histogram_generate_scalar_buckets(log_min, log_max, 100)
-  ) AS bucket ORDER BY bucket) AS buckets
-  FROM log_min_max)
-
+{% if first_run or str(config.xaxis) == "submission_date" %}
 SELECT
     submission_date,
     client_id,
@@ -116,9 +127,39 @@ SELECT
     branch,
     name,
     agg_type,
-    -- Replace value with its bucket value
-    SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS FLOAT64) AS value
+    SAFE_CAST(value AS FLOAT64) AS value
 FROM
     flattened_scalars
-LEFT JOIN buckets_by_metric USING(name)
-
+{% else %}
+-- if data is aggregated by build ID, then aggregate data with previous runs
+SELECT
+    {{ submission_date }} AS submission_date,
+    IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
+      IF(_current.agg_type IS NOT NULL,
+        CASE _current.agg_type
+          WHEN "SUM" THEN SUM(SAFE_CAST(_current.value AS FLOAT64), _prev.value)
+          WHEN "MAX" THEN MAX(SAFE_CAST(_current.value AS FLOAT64), _prev.value)
+          ELSE SAFE_CAST(_current.value AS FLOAT64)
+        END,
+        CASE _prev.agg_type
+          WHEN "SUM" THEN SUM(SAFE_CAST(_prev.value AS FLOAT64), _prev.value)
+          WHEN "MAX" THEN MAX(SAFE_CAST(_prev.value AS FLOAT64), _prev.value)
+          ELSE SAFE_CAST(_prev.value AS FLOAT64)
+        END
+      ) AS value
+FROM
+    flattened_scalars _current
+FULL JOIN
+    `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar` _prev
+ON 
+  DATE_SUB(_prev.submission_date, INTERVAL 1 DAY) = _current.submission_date AND
+  _prev.client_id = _current.client_id AND
+  _prev.build_id = _current.build_id AND
+  {% for dimension in dimensions %}
+      _prev.{{ dimension.name }} = _current.{{ dimension.name }} AND
+  {% endfor %}
+  _prev.branch = _current.branch AND
+  _prev.name = _current.name AND
+  _prev.agg_type = _current.agg_type
+WHERE _prev.submission_date = DATE_SUB('{{ submission_date }}', INTERVAL 1 DAY)
+{% endif %}
