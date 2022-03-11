@@ -1,3 +1,5 @@
+{{ header }}
+
 CREATE OR REPLACE VIEW
   `{{ gcp_project }}.operational_monitoring.{{ slug }}_scalar`
 AS

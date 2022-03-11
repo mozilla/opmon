@@ -95,26 +95,26 @@ class Monitoring:
             else:
                 probes_per_dataset[probe.data_source.name].append(probe)
 
+        # check if this is the first time the queries are executed
+        # the queries are referencing the destination table if build_id is used for the time frame
+        first_run = True
+        try:
+            self.bigquery.client.get_table(destination_table)
+            first_run = False
+        except:
+            first_run = True
+
         render_kwargs = {
             "header": "-- Generated via opmon\n",
             "gcp_project": self.project,
             "submission_date": submission_date,
             "config": self.project,
             "dataset": self.dataset,
-            "first_run": True,  # todo: check if table exists
+            "first_run": first_run,
             "dimensions": self.config.dimensions,
-
-            "branches": self.config.project.population.branches,
-            "channel": str(self.config.project.population.channel),
             "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
                 self.config.project.population.channel
             ],
-            "pref": self.config.project.population.boolean_pref
-            if self.config.project.population.branches == []
-            else None,
-            "xaxis": str(self.config.project.xaxis),
-            "start_date": self.config.project.start_date.strftime("%Y-%m-%d"),
-            "population_source": self.config.project.population.data_source,
             "probes_per_dataset": probes_per_dataset,
             "slug": self.slug,
         }
