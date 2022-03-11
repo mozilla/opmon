@@ -1,42 +1,12 @@
 {{ header }}
 
-WITH merged_probes AS (
-  SELECT
-    {% if xaxis == "submission_date" %}
-    DATE(submission_timestamp) AS submission_date,
-    {% else %}
-    @submission_date AS submission_date,
-    {% endif %}
-    client_id,
-    SAFE.SUBSTR(application.build_id, 0, 8) AS build_id,
-    {% for dimension in dimensions %}
-      CAST({{ dimension.sql }} AS STRING) AS {{ dimension.name }},
-    {% endfor %}
+{% include 'population.sql' %},
 
-    -- If a pref is defined, treat it as a rollout with an enabled and disabled branch.
-    -- If branches are provided, use those instead.
-    -- If neither a pref or branches are available, use the slug and treat it as a rollout
-    -- where those with the slug have the feature enabled and those without do not.
-    {% if pref %}
-    CASE
-      WHEN SAFE_CAST({{pref}} as BOOLEAN) THEN 'enabled'
-      WHEN NOT SAFE_CAST({{pref}} as BOOLEAN) THEN 'disabled'
-    END
-    AS branch,
-    {% elif branches %}
-    mozfun.map.get_key(
-      environment.experiments,
-      "{{slug}}"
-    ).branch AS branch,
-    {% else %}
-      CASE WHEN
-        mozfun.map.get_key(
-          environment.experiments,
-          "{{slug}}"
-        ).branch IS NULL THEN 'disabled'
-      ELSE 'enabled'
-      END AS branch,
-    {% endif %}
+{% for data_source, probes in probes_per_dataset %}
+merged_probes_{{ data_source }} AS (
+  SELECT
+    DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
+    {{ config.population.data_source.client_id_column }} AS client_id,
     ARRAY<
       STRUCT<
         metric STRING,
@@ -52,26 +22,40 @@ WITH merged_probes AS (
       {% for probe in probes %}
         (
             "{{ probe.name }}",
-            ARRAY_AGG(mozfun.hist.extract({{ probe.sql }}) IGNORE NULLS)
+            ARRAY_AGG(mozfun.hist.extract({{ probe.select_expression }}) IGNORE NULLS)
         )
         {{ "," if not loop.last else "" }}
       {% endfor %}
     ] AS metrics,
   FROM
-    `{{source}}`
+    `{{ probes[0].data_source.from_expression }}`
   WHERE
-    DATE(submission_timestamp) >= DATE_SUB(@submission_date, INTERVAL 60 DAY)
-  AND normalized_channel = '{{channel}}'
-  GROUP BY
-    submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions %}
-      {{ dimension.name }},
-    {% endfor %}
-    branch
+        {{ config.population.data_source.submission_date_column }} = '{{ submission_date }}'
+    GROUP BY
+        submission_date,
+        client_id
 ),
-
+{% endfor %}
+joined_histograms AS (
+  SELECT
+    population.submission_date AS submission_date,
+    population.client_id AS client_id,
+    population.build_id,
+    {% for dimension in dimensions %}
+      population.{{ dimension.name }} AS {{ dimension.name }},
+    {% endfor %}
+    population.branch AS branch,
+    ARRAY_CONCAT(
+      {% for data_source, probes in probes_per_dataset %}
+        merged_probes_{{ data_source }}.metrics
+      {% endfor %}
+    )
+  FROM population
+  {% for data_source, probes in probes_per_dataset %}
+  LEFT JOIN merged_probes_{{ data_source }}
+  USING(submission_date, client_id)
+  {% endfor %}
+),
 merged_histograms AS (
   SELECT
     submission_date,
@@ -107,18 +91,20 @@ merged_histograms AS (
     merged_probes
   CROSS JOIN
     UNNEST(metrics)
-  WHERE branch IN (
-    -- If branches are not defined, assume it's a rollout
-    -- and fall back to branches labeled as enabled/disabled
-    {% if branches %}
-    {% for branch in branches %}
-      "{{ branch }}"
-      {{ "," if not loop.last else "" }}
-    {% endfor %}
-    {% else %}
-    "enabled", "disabled"
-    {% endif %}
-  )
+  {% if config.population.branches != [] or config.population.boolean_pref %}
+    WHERE branch IN (
+        -- If branches are not defined, assume it's a rollout
+        -- and fall back to branches labeled as enabled/disabled
+        {% if config.population.branches != [] %}
+        {% for branch in config.population.branches %}
+          "{{ branch }}"
+          {{ "," if not loop.last else "" }}
+        {% endfor %}
+        {% elif config.population.boolean_pref %}
+        "enabled", "disabled"
+        {% endif %}
+    )
+  {% endif %}
   GROUP BY
     submission_date,
     client_id,
@@ -126,43 +112,70 @@ merged_histograms AS (
     {% for dimension in dimensions %}
       {{ dimension.name }},
     {% endfor %}
-    branch)
-
-
--- Cast histograms to have string keys so we can use the histogram normalization function
-SELECT
+    branch
+),
+normalized_histograms AS (
+  -- Cast histograms to have string keys so we can use the histogram normalization function
+  SELECT
+      submission_date,
+      client_id,
+      build_id,
+      {% for dimension in dimensions %}
+        {{ dimension.name }},
+      {% endfor %}
+      branch,
+      name AS probe,
+      STRUCT<
+          bucket_count INT64,
+          sum INT64,
+          histogram_type INT64,
+          `range` ARRAY<INT64>,
+          VALUES
+          ARRAY<STRUCT<key STRING, value INT64>>
+      >(histogram.bucket_count,
+          histogram.sum,
+          histogram.histogram_type,
+          histogram.range,
+          ARRAY(SELECT AS STRUCT CAST(keyval.key AS STRING), keyval.value FROM UNNEST(histogram.values) keyval))
+      ) AS value
+  FROM merged_histograms
+  CROSS JOIN UNNEST(metrics)
+  GROUP BY
     submission_date,
     client_id,
     build_id,
     {% for dimension in dimensions %}
       {{ dimension.name }},
     {% endfor %}
-    branch,
-    ARRAY_AGG(
-        STRUCT<
-            name STRING,
-            histogram STRUCT<
-                bucket_count INT64,
-                sum INT64,
-                histogram_type INT64,
-                `range` ARRAY<INT64>,
-                VALUES
-                ARRAY<STRUCT<key STRING, value INT64>>
-            >
-        >(name, (histogram.bucket_count,
-            histogram.sum,
-            histogram.histogram_type,
-            histogram.range,
-            ARRAY(SELECT AS STRUCT CAST(keyval.key AS STRING), keyval.value FROM UNNEST(histogram.values) keyval))
-        )
-    ) AS metrics
-FROM merged_histograms
-CROSS JOIN UNNEST(metrics)
-GROUP BY
-  submission_date,
-  client_id,
-  build_id,
+    branch
+)
+{% if first_run or str(config.xaxis) == "submission_date" %}
+SELECT
+  * 
+FROM 
+normalized_histograms
+{% else %}
+SELECT
+    '{{ submission_date }}' AS submission_date,
+    IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
+      IF(_current.value IS NOT NULL,
+        IF(_prev.value IS NOT NULL, mozfun.hist.merge([_current.value, _prev.value]), _current.value),
+        _prev.value
+      ) AS value
+    )
+FROM
+    normalized_histograms _current
+FULL JOIN
+    `{{ gcp_project }}.{{ dataset }}.{{ slug }}_histogram` _prev
+ON 
+  DATE_SUB(_prev.submission_date, INTERVAL 1 DAY) = _current.submission_date AND
+  _prev.client_id = _current.client_id AND
+  _prev.build_id = _current.build_id AND
   {% for dimension in dimensions %}
-    {{ dimension.name }},
+      _prev.{{ dimension.name }} = _current.{{ dimension.name }} AND
   {% endfor %}
-  branch
+  _prev.branch = _current.branch 
+WHERE _prev.submission_date = DATE_SUB('{{ submission_date }}', INTERVAL 1 DAY)
+{% endif %}
+
+

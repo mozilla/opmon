@@ -1,46 +1,6 @@
 {{ header }}
 
-WITH population AS (
-    SELECT
-        DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
-        {{ config.population.data_source.client_id_column }} AS client_id,
-        {{ config.population.data_source.build_id_column }} AS build_id,
-        {% for dimension in dimensions %}
-          CAST({{ dimension.select_expression }} AS STRING) AS {{ dimension.name }},
-        {% endfor %}
-
-        -- If a pref is defined, treat it as a rollout with an enabled and disabled branch.
-        -- If branches are provided, use those instead.
-        -- If neither a pref or branches are available, use the slug and treat it as a rollout
-        -- where those with the slug have the feature enabled and those without do not.
-        {% if config.population.branches != [] %}
-        mozfun.map.get_key(
-          environment.experiments,
-          "{{ slug }}"
-        ).branch AS branch,
-        {% elif config.population.boolean_pref %}
-        CASE
-          WHEN SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'enabled'
-          WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
-        END
-        AS branch,
-        {% else %}
-          NULL AS branch,
-        {% endif %}
-    FROM
-        `{{ config.population.data_source.from_expression }}`
-    WHERE
-        DATE({{ config.population.data_source.submission_date_column }}) = '{{ submission_date }}'
-        AND normalized_channel = '{{ config.population.channel }}'
-    GROUP BY
-        submission_date,
-        client_id,
-        build_id,
-        {% for dimension in dimensions %}
-          {{ dimension.name }},
-        {% endfor %}
-        branch
-),
+{% include 'population.sql' %},
 
 {% for data_source, probes in probes_per_dataset %}
 merged_scalars_{{ data_source }} AS (
@@ -81,7 +41,7 @@ joined_scalars AS (
   SELECT
     population.submission_date AS submission_date,
     population.client_id AS client_id,
-    population,build_id,
+    population.build_id,
     {% for dimension in dimensions %}
       population.{{ dimension.name }} AS {{ dimension.name }},
     {% endfor %}
@@ -133,7 +93,7 @@ FROM
 {% else %}
 -- if data is aggregated by build ID, then aggregate data with previous runs
 SELECT
-    {{ submission_date }} AS submission_date,
+    '{{ submission_date }}' AS submission_date,
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
       IF(_current.agg_type IS NOT NULL,
         CASE _current.agg_type
@@ -147,6 +107,7 @@ SELECT
           ELSE SAFE_CAST(_prev.value AS FLOAT64)
         END
       ) AS value
+    )
 FROM
     flattened_scalars _current
 FULL JOIN
