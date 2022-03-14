@@ -9,9 +9,10 @@ from typing import Any, Dict, Optional
 import attr
 from jinja2 import Environment, FileSystemLoader
 
-from . import Channel, MonitoringPeriod
+from . import Channel, MonitoringPeriod, errors
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
+from .dryrun import dry_run_query
 from .logging import LogConfiguration
 from .utils import bq_normalize_name
 
@@ -56,16 +57,37 @@ class Monitoring:
             self._run_sql_for_data_type(submission_date, data_type)
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
+        self.check_runnable(submission_date)
+
         destination_table = f"{self.project}.{self.dataset}.{self.normalized_slug}_{data_type}"
         date_partition = str(submission_date).replace("-", "")
 
         if self.config.xaxis == "build_id":
             destination_table += f"${date_partition}"
 
-        if not (
-            self.config.project.population.branches or self.config.project.population.boolean_pref
-        ):
-            raise ValueError("Either branches or boolean_pref need to be defined")
+        partition_expiration_ms = None
+        if self.config.project.xaxis != MonitoringPeriod.DAY:
+            partition_expiration_ms = DEFAULT_PARTITION_EXPIRATION
+
+        self.bigquery.execute(
+            self._get_data_type_sql(submission_date=submission_date, data_type=data_type),
+            destination_table,
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            partition_expiration_ms=partition_expiration_ms,
+        )
+        self.bigquery.execute(self._get_data_type_view_sql(data_type=data_type))
+
+    def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
+        file_loader = FileSystemLoader(TEMPLATE_FOLDER)
+        env = Environment(loader=file_loader)
+        template = env.get_template(template_file)
+        sql = template.render(**render_kwargs)
+        return sql
+
+    def _get_data_type_sql(self, submission_date: datetime, data_type: str) -> str:
+        """Return SQL for data_type ETL."""
+        destination_table = f"{self.project}.{self.dataset}.{self.normalized_slug}_{data_type}"
 
         probes = self.config.probes
         probes = [probe for probe in probes if probe.data_type == data_type]
@@ -101,7 +123,7 @@ class Monitoring:
         try:
             self.bigquery.client.get_table(destination_table)
             first_run = False
-        except:
+        except Exception:
             first_run = True
 
         render_kwargs = {
@@ -119,29 +141,12 @@ class Monitoring:
             "slug": self.slug,
         }
 
-        partition_expiration_ms = None
-        if self.config.project.xaxis != MonitoringPeriod.DAY:
-            partition_expiration_ms = DEFAULT_PARTITION_EXPIRATION
-
         sql_filename = QUERY_FILENAME.format(data_type)
         sql = self._render_sql(sql_filename, render_kwargs)
-        self.bigquery.execute(
-            sql,
-            destination_table,
-            clustering=["build_id"],
-            time_partitioning="submission_date",
-            partition_expiration_ms=partition_expiration_ms,
-        )
-        self._publish_view(data_type)
-
-    def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
-        file_loader = FileSystemLoader(TEMPLATE_FOLDER)
-        env = Environment(loader=file_loader)
-        template = env.get_template(template_file)
-        sql = template.render(**render_kwargs)
         return sql
 
-    def _publish_view(self, data_type: str):
+    def _get_data_type_view_sql(self, data_type: str) -> str:
+        """Returns the SQL to create a BigQuery view."""
         sql_filename = VIEW_FILENAME.format(data_type)
         render_kwargs = {
             "gcp_project": self.project,
@@ -150,4 +155,35 @@ class Monitoring:
             "start_date": self.config.project.start_date.strftime("%Y-%m-%d"),
         }
         sql = self._render_sql(sql_filename, render_kwargs)
-        self.bigquery.execute(sql)
+        return sql
+
+    def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
+        """Checks whether the opmon project can be run based on configuration parameters."""
+        if self.config.project.start_date is None:
+            raise errors.NoStartDateException(self.slug)
+
+        if (
+            current_date
+            and self.config.project.end_date
+            and self.config.project.end_date < current_date
+        ):
+            raise errors.EndedException(self.slug)
+
+        if not (
+            self.config.project.population.branches or self.config.project.population.boolean_pref
+        ):
+            raise errors.ConfigurationException(
+                "Either branches or boolean_pref need to be defined"
+            )
+
+        return True
+
+    def validate(self) -> None:
+        """Validate ETL and configs of opmon project."""
+        self._check_runnable()
+
+        for data_type in DATA_TYPES:
+            data_type_sql = self._get_data_type_sql(
+                submission_date=self.config.project.start_date, data_type=data_type
+            )
+            dry_run_query(data_type_sql)

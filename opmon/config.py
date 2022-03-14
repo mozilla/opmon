@@ -28,7 +28,7 @@ class DataSourceDefinition:
             "from_expression": self.from_expression,
             "submission_date_column": self.submission_date_column,
             "build_id_column": self.build_id_column,
-            "client_id_column": self.client_id_column
+            "client_id_column": self.client_id_column,
         }
         return DataSource(**params)
 
