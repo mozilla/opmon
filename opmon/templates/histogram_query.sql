@@ -2,7 +2,7 @@
 
 {% include 'population.sql' %},
 
-{% for data_source, probes in probes_per_dataset %}
+{% for data_source, probes in probes_per_dataset.items() -%}
 merged_probes_{{ data_source }} AS (
   SELECT
     DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
@@ -30,7 +30,7 @@ merged_probes_{{ data_source }} AS (
   FROM
     `{{ probes[0].data_source.from_expression }}`
   WHERE
-        {{ config.population.data_source.submission_date_column }} = '{{ submission_date }}'
+        {{ config.population.data_source.submission_date_column }} = DATE('{{ submission_date }}')
     GROUP BY
         submission_date,
         client_id
@@ -46,12 +46,12 @@ joined_histograms AS (
     {% endfor %}
     population.branch AS branch,
     ARRAY_CONCAT(
-      {% for data_source, probes in probes_per_dataset %}
+      {% for data_source, probes in probes_per_dataset.items() %}
         merged_probes_{{ data_source }}.metrics
       {% endfor %}
-    )
+    ) AS metrics
   FROM population
-  {% for data_source, probes in probes_per_dataset %}
+  {% for data_source, probes in probes_per_dataset.items() %}
   LEFT JOIN merged_probes_{{ data_source }}
   USING(submission_date, client_id)
   {% endfor %}
@@ -88,7 +88,7 @@ merged_histograms AS (
       )
     ) AS metrics
   FROM
-    merged_probes
+    joined_histograms
   CROSS JOIN
     UNNEST(metrics)
   {% if config.population.branches != [] or config.population.boolean_pref %}
@@ -120,9 +120,9 @@ normalized_histograms AS (
       submission_date,
       client_id,
       build_id,
-      {% for dimension in dimensions %}
+      {% for dimension in dimensions -%}
         {{ dimension.name }},
-      {% endfor %}
+      {% endfor -%}
       branch,
       name AS probe,
       STRUCT<
@@ -136,25 +136,17 @@ normalized_histograms AS (
           histogram.sum,
           histogram.histogram_type,
           histogram.range,
-          ARRAY(SELECT AS STRUCT CAST(keyval.key AS STRING), keyval.value FROM UNNEST(histogram.values) keyval))
+          ARRAY(SELECT AS STRUCT CAST(keyval.key AS STRING), keyval.value FROM UNNEST(histogram.values) keyval)
       ) AS value
   FROM merged_histograms
   CROSS JOIN UNNEST(metrics)
-  GROUP BY
-    submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions %}
-      {{ dimension.name }},
-    {% endfor %}
-    branch
 )
-{% if first_run or str(config.xaxis) == "submission_date" %}
+{% if first_run or str(config.xaxis) == "submission_date" -%}
 SELECT
   * 
 FROM 
 normalized_histograms
-{% else %}
+{% else -%}
 SELECT
     '{{ submission_date }}' AS submission_date,
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
@@ -171,11 +163,11 @@ ON
   DATE_SUB(_prev.submission_date, INTERVAL 1 DAY) = _current.submission_date AND
   _prev.client_id = _current.client_id AND
   _prev.build_id = _current.build_id AND
-  {% for dimension in dimensions %}
+  {% for dimension in dimensions -%}
       _prev.{{ dimension.name }} = _current.{{ dimension.name }} AND
-  {% endfor %}
+  {% endfor -%}
   _prev.branch = _current.branch 
-WHERE _prev.submission_date = DATE_SUB('{{ submission_date }}', INTERVAL 1 DAY)
+WHERE _prev.submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)
 {% endif %}
 
 

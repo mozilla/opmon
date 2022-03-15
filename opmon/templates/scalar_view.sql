@@ -6,9 +6,10 @@ AS
 WITH valid_builds AS (
     SELECT build_id
     FROM `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar`
-    WHERE {% include 'where_clause.sql' %}
+    WHERE {% include 'where_clause.sql' -%}
     GROUP BY 1
-    HAVING COUNT(DISTINCT client_id) >= {{ user_count_threshold }}
+    -- todo adjust thresholds
+    -- HAVING COUNT(DISTINCT client_id) >= {{ user_count_threshold }}
 ),
 
 filtered_scalars AS (
@@ -16,19 +17,19 @@ filtered_scalars AS (
     FROM valid_builds
     INNER JOIN `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar`
     USING (build_id)
-    WHERE {% include 'where_clause.sql' %}
+    WHERE {% include 'where_clause.sql' -%}
 )
 
 SELECT
   client_id,
-  {% if str(config.xaxis) == "submission_date" %}
+  {% if config.xaxis.value == "day" -%}
   submission_date,
   {% else %}
   build_id,
   {% endif %}
-  {% for dimension in dimensions %}
+  {% for dimension in dimensions -%}
     {{ dimension.name }},
-  {% endfor %}
+  {% endfor -%}
   branch,
   agg_type,
   name AS probe,
@@ -39,14 +40,14 @@ SELECT
 FROM filtered_scalars
 GROUP BY
   client_id,
-  {% if str(config.xaxis) == "submission_date" %}
+  {% if config.xaxis.value == "day" -%}
   submission_date,
-  {% else %}
+  {% else -%}
   build_id,
-  {% endif %}
-  {% for dimension in dimensions %}
+  {% endif -%}
+  {% for dimension in dimensions -%}
     {{ dimension.name }},
-  {% endfor %}
+  {% endfor -%}
   branch,
   agg_type,
   probe

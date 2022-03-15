@@ -3,39 +3,39 @@ WITH population AS (
         DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
         {{ config.population.data_source.client_id_column }} AS client_id,
         {{ config.population.data_source.build_id_column }} AS build_id,
-        {% for dimension in dimensions %}
+        {% for dimension in dimensions -%}
           CAST({{ dimension.select_expression }} AS STRING) AS {{ dimension.name }},
-        {% endfor %}
+        {% endfor -%}
 
         -- If a pref is defined, treat it as a rollout with an enabled and disabled branch.
         -- If branches are provided, use those instead.
         -- If neither a pref or branches are available, use the slug and treat it as a rollout
         -- where those with the slug have the feature enabled and those without do not.
-        {% if config.population.branches != [] %}
+        {% if config.population.branches != [] -%}
         mozfun.map.get_key(
           environment.experiments,
           "{{ slug }}"
         ).branch AS branch,
-        {% elif config.population.boolean_pref %}
+        {% elif config.population.boolean_pref -%}
         CASE
           WHEN SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'enabled'
           WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
         END
         AS branch,
-        {% else %}
+        {% else -%}
           NULL AS branch,
         {% endif %}
     FROM
         `{{ config.population.data_source.from_expression }}`
     WHERE
-        DATE({{ config.population.data_source.submission_date_column }}) = '{{ submission_date }}'
-        AND normalized_channel = '{{ config.population.channel }}'
+        DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
+        AND normalized_channel = '{{ config.population.channel.value }}'
     GROUP BY
         submission_date,
         client_id,
         build_id,
-        {% for dimension in dimensions %}
+        {% for dimension in dimensions -%}
           {{ dimension.name }},
-        {% endfor %}
+        {% endfor -%}
         branch
 )

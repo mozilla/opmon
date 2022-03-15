@@ -100,7 +100,9 @@ class ExperimentV1:
             app_name="firefox_desktop",
             app_id="firefox-desktop",
             boolean_pref=self.pref_name,
-            channel=Channel(self.firefox_channel.lower()) if self.firefox_channel else None,
+            channel=Channel(self.firefox_channel.lower())
+            if self.firefox_channel and Channel.has_value(self.firefox_channel)
+            else None,
         )
 
 
@@ -167,7 +169,9 @@ class ExperimentV6:
             app_name=self.appName,
             app_id=self.appId,
             boolean_pref=None,
-            channel=Channel(self.channel) if self.channel else None,
+            channel=Channel(self.channel)
+            if self.channel and Channel.has_value(self.channel)
+            else None,
         )
 
 

@@ -28,12 +28,15 @@ class ExternalConfig:
 
     def validate(self, experiment: Optional[experimenter.Experiment] = None) -> None:
         conf = self.spec.resolve(experiment)
-        Monitoring("no project", "no dataset", conf).validate()
+        Monitoring(
+            project="no project", dataset="no dataset", slug=self.slug, config=conf
+        ).validate()
 
 
 def entity_from_path(path: Path) -> ExternalConfig:
     slug = path.stem
     config_dict = toml.loads(path.read_text())
+
     return ExternalConfig(
         slug=slug,
         spec=MonitoringSpec.from_dict(config_dict),

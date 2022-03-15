@@ -11,11 +11,11 @@ import click
 import pytz
 
 from opmon.config import MonitoringConfiguration
+from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
-from opmon.external_config import ExternalConfigCollection
+from opmon.external_config import ExternalConfigCollection, entity_from_path
+from opmon.logging import LogConfiguration
 from opmon.monitoring import Monitoring
-
-from .logging import LogConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
     configs = []
     for external_config in external_configs.configs:
         experiment = experiments.with_slug(external_config.slug)
-        platform = external_config.spec.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
 
         if platform not in external_config.definitions:
             logger.exception(
@@ -168,7 +168,9 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
 def validate_config(path: Iterable[os.PathLike]):
     """Validate config files."""
     dirty = False
-    # collection = ExperimentCollection.from_experimenter()
+    external_configs = ExternalConfigCollection.from_github_repo()
+    platform_definitions = external_configs.definitions
+    experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     for config_file in path:
         config_file = Path(config_file)
@@ -178,5 +180,26 @@ def validate_config(path: Iterable[os.PathLike]):
             print(f"Skipping example config {config_file}")
             continue
         print(f"Evaluating {config_file}...")
-        # todo: run validation
+        entity = entity_from_path(config_file)
+        experiment = experiments.with_slug(entity.slug)
+        platform = entity.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+
+        if platform not in platform_definitions:
+            print(f"Invalid platform {platform}")
+            dirty = True
+            continue
+
+        platform_definitions = external_configs.definitions[platform]
+        spec = entity.spec
+        spec.merge(platform_definitions.spec)
+
+        try:
+            entity.validate(experiment)
+        except DryRunFailedError as e:
+            print("Error evaluating SQL:")
+            for i, line in enumerate(e.sql.split("\n")):
+                print(f"{i+1: 4d} {line.rstrip()}")
+            print("")
+            print(str(e))
+            dirty = True
     sys.exit(1 if dirty else 0)

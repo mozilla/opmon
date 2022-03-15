@@ -2,7 +2,7 @@
 
 {% include 'population.sql' %},
 
-{% for data_source, probes in probes_per_dataset %}
+{% for data_source, probes in probes_per_dataset.items() -%}
 merged_scalars_{{ data_source }} AS (
     SELECT
         DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
@@ -14,7 +14,7 @@ merged_scalars_{{ data_source }} AS (
                 value INT64
             >
         >[
-          {% for probe in probes %}
+          {% for probe in probes -%}
             (
                 "{{ probe.name }}",
                 "MAX",
@@ -26,12 +26,12 @@ merged_scalars_{{ data_source }} AS (
                 SUM(CAST({{ probe.select_expression }} AS INT64))
             )
             {{ "," if not loop.last else "" }}
-          {% endfor %}
+          {% endfor -%}
         ] AS metrics,
     FROM
         `{{ probes[0].data_source.from_expression }}`
     WHERE
-        {{ config.population.data_source.submission_date_column }} = '{{ submission_date }}'
+        DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
     GROUP BY
         submission_date,
         client_id
@@ -42,17 +42,17 @@ joined_scalars AS (
     population.submission_date AS submission_date,
     population.client_id AS client_id,
     population.build_id,
-    {% for dimension in dimensions %}
+    {% for dimension in dimensions -%}
       population.{{ dimension.name }} AS {{ dimension.name }},
     {% endfor %}
     population.branch AS branch,
     ARRAY_CONCAT(
-      {% for data_source, probes in probes_per_dataset %}
+      {% for data_source, probes in probes_per_dataset.items() -%}
         merged_scalars_{{ data_source }}.metrics
-      {% endfor %}
-    )
+      {% endfor -%}
+    ) AS metrics
   FROM population
-  {% for data_source, probes in probes_per_dataset %}
+  {% for data_source, probes in probes_per_dataset.items() -%}
   LEFT JOIN merged_scalars_{{ data_source }}
   USING(submission_date, client_id)
   {% endfor %}
@@ -65,32 +65,32 @@ flattened_scalars AS (
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
         -- and fall back to branches labeled as enabled/disabled
-        {% if config.population.branches != [] %}
-        {% for branch in config.population.branches %}
+        {% if config.population.branches != [] -%}
+        {% for branch in config.population.branches -%}
           "{{ branch }}"
           {{ "," if not loop.last else "" }}
-        {% endfor %}
-        {% elif config.population.boolean_pref %}
+        {% endfor -%}
+        {% elif config.population.boolean_pref -%}
         "enabled", "disabled"
-        {% endif %}
+        {% endif -%}
     )
-    {% endif %}
-),
-{% if first_run or str(config.xaxis) == "submission_date" %}
+    {% endif -%}
+)
+{% if first_run or str(config.xaxis) == "submission_date" -%}
 SELECT
     submission_date,
     client_id,
     build_id,
-    {% for dimension in dimensions %}
+    {% for dimension in dimensions -%}
       {{ dimension.name }},
-    {% endfor %}
+    {% endfor -%}
     branch,
     name,
     agg_type,
     SAFE_CAST(value AS FLOAT64) AS value
 FROM
     flattened_scalars
-{% else %}
+{% else -%}
 -- if data is aggregated by build ID, then aggregate data with previous runs
 SELECT
     '{{ submission_date }}' AS submission_date,
@@ -123,4 +123,4 @@ ON
   _prev.name = _current.name AND
   _prev.agg_type = _current.agg_type
 WHERE _prev.submission_date = DATE_SUB('{{ submission_date }}', INTERVAL 1 DAY)
-{% endif %}
+{% endif -%}

@@ -85,12 +85,14 @@ class Monitoring:
         sql = template.render(**render_kwargs)
         return sql
 
-    def _get_data_type_sql(self, submission_date: datetime, data_type: str) -> str:
+    def _get_data_type_sql(
+        self, submission_date: datetime, data_type: str, first_run: Optional[bool] = None
+    ) -> str:
         """Return SQL for data_type ETL."""
         destination_table = f"{self.project}.{self.dataset}.{self.normalized_slug}_{data_type}"
 
         probes = self.config.probes
-        probes = [probe for probe in probes if probe.data_type == data_type]
+        probes = [probe for probe in probes if probe.type == data_type]
 
         if len(probes) == 0:
             # There are no probes for this data source + data type combo
@@ -111,7 +113,7 @@ class Monitoring:
         # group probes that are part of the same dataset
         # necessary for creating the SQL template
         probes_per_dataset = {}
-        for probe in self.config.probes:
+        for probe in probes:
             if probe.data_source.name not in probes_per_dataset:
                 probes_per_dataset[probe.data_source.name] = [probe]
             else:
@@ -119,18 +121,19 @@ class Monitoring:
 
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
-        first_run = True
-        try:
-            self.bigquery.client.get_table(destination_table)
-            first_run = False
-        except Exception:
+        if first_run is None:
             first_run = True
+            try:
+                self.bigquery.client.get_table(destination_table)
+                first_run = False
+            except Exception:
+                first_run = True
 
         render_kwargs = {
             "header": "-- Generated via opmon\n",
             "gcp_project": self.project,
             "submission_date": submission_date,
-            "config": self.project,
+            "config": self.config.project,
             "dataset": self.dataset,
             "first_run": first_run,
             "dimensions": self.config.dimensions,
@@ -169,13 +172,6 @@ class Monitoring:
         ):
             raise errors.EndedException(self.slug)
 
-        if not (
-            self.config.project.population.branches or self.config.project.population.boolean_pref
-        ):
-            raise errors.ConfigurationException(
-                "Either branches or boolean_pref need to be defined"
-            )
-
         return True
 
     def validate(self) -> None:
@@ -184,6 +180,7 @@ class Monitoring:
 
         for data_type in DATA_TYPES:
             data_type_sql = self._get_data_type_sql(
-                submission_date=self.config.project.start_date, data_type=data_type
+                submission_date=self.config.project.start_date, data_type=data_type, first_run=True
             )
+            print(data_type_sql)
             dry_run_query(data_type_sql)

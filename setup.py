@@ -37,6 +37,7 @@ setup(
     url="https://github.com/mozilla/opmon",
     packages=[
         "opmon",
+        "opmon.logging",
         "opmon.templates",
         "opmon.tests",
         "opmon.tests.integration",

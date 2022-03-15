@@ -1,0 +1,26 @@
+[project]
+xaxis = "day"
+start_date = "2022-01-01"
+platform = "firefox_desktop"
+probes = [
+    "content_process_max", 
+    "child_process_launch_ms", 
+    "content_process_count",
+    "pinned_event_count",
+    "tab_open_event_count"
+]
+
+[project.population]
+data_source = "main_nightly"
+channel = "nightly"
+dimensions = ["os"]
+
+[probes]
+
+[probes.content_process_max]
+data_source = "main_nightly"
+select_expression = "payload.histograms.content_process_max"
+friendly_name = "Content Process Max"
+category = "performance"
+type = "histogram"
+

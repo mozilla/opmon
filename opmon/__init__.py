@@ -14,6 +14,10 @@ class Channel(enum.Enum):
     BETA = "beta"
     RELEASE = "release"
 
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
 
 @attr.s(auto_attribs=True)
 class DataSource:
