@@ -31,19 +31,22 @@ class BigQueryClient:
         clustering: Optional[List[str]] = None,
         time_partitioning: Optional[str] = None,
         partition_expiration_ms: Optional[int] = None,
+        dataset: Optional[str] = None,
     ) -> None:
         dataset = bigquery.dataset.DatasetReference.from_string(
-            self.dataset,
+            dataset if dataset else self.dataset,
             default_project=self.project,
         )
+
         kwargs = {
-            "schema_update_options": bigquery.job.SchemaUpdateOption.ALLOW_FIELD_ADDITION,
             "allow_large_results": True,
-            "use_query_cache": True,
+            "use_query_cache": False,
         }
+
         if destination_table:
             kwargs["destination"] = dataset.table(destination_table)
             kwargs["write_disposition"] = bigquery.job.WriteDisposition.WRITE_TRUNCATE
+            kwargs["schema_update_options"] = bigquery.job.SchemaUpdateOption.ALLOW_FIELD_ADDITION
 
         if write_disposition:
             kwargs["write_disposition"] = write_disposition
@@ -62,7 +65,7 @@ class BigQueryClient:
         config = bigquery.job.QueryJobConfig(default_dataset=dataset, **kwargs)
         job = self.client.query(query, config)
         # block on result
-        job.result(max_results=1)
+        job.result()
 
     def load_table_from_json(
         self, results: Iterable[Dict], table: str, job_config: bigquery.LoadJobConfig

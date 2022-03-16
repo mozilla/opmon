@@ -126,6 +126,10 @@ class TestConfig:
             [probes.test]
             select_expression = "SELECT 'd'"
             data_source = "foo"
+
+            [data_sources]
+            [data_sources.foo]
+            from_expression = "bar"
             """
         )
         spec2 = MonitoringSpec.from_dict(toml.loads(config_str))
@@ -137,6 +141,7 @@ class TestConfig:
         test2 = [p for p in cfg.probes if p.name == "test2"][0]
         assert test.select_expression == "SELECT 'd'"
         assert test.data_source.name == "foo"
+        assert test.data_source.from_expression == "bar"
         assert test2.select_expression == "SELECT 2"
 
     def test_unknown_probe_failure(self, experiments):

@@ -11,25 +11,25 @@ merged_scalars_{{ data_source }} AS (
             STRUCT<
                 name STRING,
                 agg_type STRING,
-                value INT64
+                value FLOAT64
             >
         >[
           {% for probe in probes -%}
             (
                 "{{ probe.name }}",
                 "MAX",
-                MAX(CAST({{ probe.select_expression }} AS INT64))
+                MAX(CAST({{ probe.select_expression }} AS FLOAT64))
             ),
             (
                 "{{ probe.name }}",
                 "SUM",
-                SUM(CAST({{ probe.select_expression }} AS INT64))
+                SUM(CAST({{ probe.select_expression }} AS FLOAT64))
             )
             {{ "," if not loop.last else "" }}
           {% endfor -%}
         ] AS metrics,
     FROM
-        `{{ probes[0].data_source.from_expression }}`
+        {{ probes[0].data_source.from_expression }}
     WHERE
         DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
     GROUP BY
@@ -49,6 +49,7 @@ joined_scalars AS (
     ARRAY_CONCAT(
       {% for data_source, probes in probes_per_dataset.items() -%}
         merged_scalars_{{ data_source }}.metrics
+        {{ "," if not loop.last else "" }}
       {% endfor -%}
     ) AS metrics
   FROM population
@@ -58,14 +59,14 @@ joined_scalars AS (
   {% endfor %}
 ),
 flattened_scalars AS (
-    SELECT *
+    SELECT * EXCEPT(metrics)
     FROM joined_scalars
     CROSS JOIN UNNEST(metrics)
-    {% if config.population.branches != [] or config.population.boolean_pref %}
+    {% if config.population.branches|length > 0 or config.population.boolean_pref %}
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
         -- and fall back to branches labeled as enabled/disabled
-        {% if config.population.branches != [] -%}
+        {% if config.population.branches|length > 0  -%}
         {% for branch in config.population.branches -%}
           "{{ branch }}"
           {{ "," if not loop.last else "" }}
@@ -76,42 +77,35 @@ flattened_scalars AS (
     )
     {% endif -%}
 )
-{% if first_run or str(config.xaxis) == "submission_date" -%}
+{% if first_run or config.xaxis.value == "day" -%}
 SELECT
-    submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions -%}
-      {{ dimension.name }},
-    {% endfor -%}
-    branch,
-    name,
-    agg_type,
-    SAFE_CAST(value AS FLOAT64) AS value
+    *
 FROM
     flattened_scalars
 {% else -%}
 -- if data is aggregated by build ID, then aggregate data with previous runs
 SELECT
-    '{{ submission_date }}' AS submission_date,
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
       IF(_current.agg_type IS NOT NULL,
         CASE _current.agg_type
-          WHEN "SUM" THEN SUM(SAFE_CAST(_current.value AS FLOAT64), _prev.value)
-          WHEN "MAX" THEN MAX(SAFE_CAST(_current.value AS FLOAT64), _prev.value)
+          WHEN "SUM" THEN SAFE_CAST(_current.value AS FLOAT64) + SAFE_CAST(_prev.value AS FLOAT64)
+          WHEN "MAX" THEN GREATEST(SAFE_CAST(_current.value AS FLOAT64), SAFE_CAST(_prev.value AS FLOAT64))
           ELSE SAFE_CAST(_current.value AS FLOAT64)
         END,
         CASE _prev.agg_type
-          WHEN "SUM" THEN SUM(SAFE_CAST(_prev.value AS FLOAT64), _prev.value)
-          WHEN "MAX" THEN MAX(SAFE_CAST(_prev.value AS FLOAT64), _prev.value)
+          WHEN "SUM" THEN SAFE_CAST(_current.value AS FLOAT64) + SAFE_CAST(_prev.value AS FLOAT64)
+          WHEN "MAX" THEN GREATEST(SAFE_CAST(_current.value AS FLOAT64), SAFE_CAST(_prev.value AS FLOAT64))
           ELSE SAFE_CAST(_prev.value AS FLOAT64)
         END
       ) AS value
     )
 FROM
     flattened_scalars _current
-FULL JOIN
-    `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar` _prev
+FULL JOIN (
+  SELECT * FROM
+    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
+  WHERE submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)
+) AS _prev
 ON 
   DATE_SUB(_prev.submission_date, INTERVAL 1 DAY) = _current.submission_date AND
   _prev.client_id = _current.client_id AND
@@ -122,5 +116,4 @@ ON
   _prev.branch = _current.branch AND
   _prev.name = _current.name AND
   _prev.agg_type = _current.agg_type
-WHERE _prev.submission_date = DATE_SUB('{{ submission_date }}', INTERVAL 1 DAY)
 {% endif -%}

@@ -11,7 +11,9 @@ WITH population AS (
         -- If branches are provided, use those instead.
         -- If neither a pref or branches are available, use the slug and treat it as a rollout
         -- where those with the slug have the feature enabled and those without do not.
-        {% if config.population.branches != [] -%}
+        {% if config.population.branches|length > 0 -%}
+        -- todo: this doesn't make sense
+        -- filter out clients that don't have branch
         mozfun.map.get_key(
           environment.experiments,
           "{{ slug }}"

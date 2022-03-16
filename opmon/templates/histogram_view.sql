@@ -1,11 +1,11 @@
 {{ header }}
 
 CREATE OR REPLACE VIEW
-  `{{ gcp_project }}.operational_monitoring.{{ slug }}_histogram`
+  `{{ gcp_project }}.{{ dataset }}.{{ normalized_slug }}_histogram`
 AS
 WITH valid_builds AS (
     SELECT build_id
-    FROM `{{ gcp_project }}.{{ dataset }}.{{ slug }}_histogram`
+    FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
     WHERE {% include 'where_clause.sql' -%}
     GROUP BY 1
     -- todo adjust thresholds
@@ -15,7 +15,7 @@ WITH valid_builds AS (
 filtered_histograms AS (
     SELECT *
     FROM valid_builds
-    INNER JOIN `{{ gcp_project }}.{{ dataset }}.{{ slug }}_histogram`
+    INNER JOIN `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
     USING (build_id)
     WHERE {% include 'where_clause.sql' -%}
 ),

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import attr
 from jinja2 import Environment, FileSystemLoader
 
-from . import Channel, MonitoringPeriod, errors
+from . import Channel, errors
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
 from .dryrun import dry_run_query
@@ -22,11 +22,12 @@ QUERY_FILENAME = "{}_query.sql"
 VIEW_FILENAME = "{}_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
-DEFAULT_PARTITION_EXPIRATION = 432000000  # 5 days
 
 # See https://github.com/mozilla/glam/issues/1575#issuecomment-946880387
 # for reference of where these numbers come from.
-USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 375, Channel.BETA: 9000, Channel.RELEASE: 625000}
+# USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 375, Channel.BETA: 9000, Channel.RELEASE: 625000}
+# todo: adjust thresholds
+USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 1, Channel.BETA: 1, Channel.RELEASE: 1}
 
 # This is a mapping of project slug to metadata.
 om_projects = {}
@@ -55,27 +56,22 @@ class Monitoring:
             # Periodically print so airflow gke operator doesn't think task is dead
             print(f"Run query for {self.slug} for {data_type} types")
             self._run_sql_for_data_type(submission_date, data_type)
+        return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
-        self.check_runnable(submission_date)
-
-        destination_table = f"{self.project}.{self.dataset}.{self.normalized_slug}_{data_type}"
-        date_partition = str(submission_date).replace("-", "")
-
-        if self.config.xaxis == "build_id":
-            destination_table += f"${date_partition}"
-
-        partition_expiration_ms = None
-        if self.config.project.xaxis != MonitoringPeriod.DAY:
-            partition_expiration_ms = DEFAULT_PARTITION_EXPIRATION
+        self._check_runnable(submission_date)
+        date_partition = str(submission_date).replace("-", "").split(" ")[0]
+        destination_table = f"{self.normalized_slug}_{data_type}${date_partition}"
 
         self.bigquery.execute(
             self._get_data_type_sql(submission_date=submission_date, data_type=data_type),
             destination_table,
             clustering=["build_id"],
             time_partitioning="submission_date",
-            partition_expiration_ms=partition_expiration_ms,
+            dataset=f"{self.dataset}_derived",
         )
+
+        print(f"Create view for {self.slug} {data_type}")
         self.bigquery.execute(self._get_data_type_view_sql(data_type=data_type))
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
@@ -89,8 +85,6 @@ class Monitoring:
         self, submission_date: datetime, data_type: str, first_run: Optional[bool] = None
     ) -> str:
         """Return SQL for data_type ETL."""
-        destination_table = f"{self.project}.{self.dataset}.{self.normalized_slug}_{data_type}"
-
         probes = self.config.probes
         probes = [probe for probe in probes if probe.type == data_type]
 
@@ -122,6 +116,9 @@ class Monitoring:
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
+            destination_table = (
+                f"{self.project}.{self.dataset}_derived.{self.normalized_slug}_{data_type}"
+            )
             first_run = True
             try:
                 self.bigquery.client.get_table(destination_table)
@@ -142,10 +139,12 @@ class Monitoring:
             ],
             "probes_per_dataset": probes_per_dataset,
             "slug": self.slug,
+            "normalized_slug": self.normalized_slug,
         }
 
         sql_filename = QUERY_FILENAME.format(data_type)
         sql = self._render_sql(sql_filename, render_kwargs)
+        print(sql)
         return sql
 
     def _get_data_type_view_sql(self, data_type: str) -> str:
@@ -154,8 +153,8 @@ class Monitoring:
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
-            "slug": self.slug,
-            "start_date": self.config.project.start_date.strftime("%Y-%m-%d"),
+            "config": self.config.project,
+            "normalized_slug": self.normalized_slug,
         }
         sql = self._render_sql(sql_filename, render_kwargs)
         return sql
@@ -182,5 +181,4 @@ class Monitoring:
             data_type_sql = self._get_data_type_sql(
                 submission_date=self.config.project.start_date, data_type=data_type, first_run=True
             )
-            print(data_type_sql)
             dry_run_query(data_type_sql)

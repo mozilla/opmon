@@ -28,7 +28,7 @@ merged_probes_{{ data_source }} AS (
       {% endfor %}
     ] AS metrics,
   FROM
-    `{{ probes[0].data_source.from_expression }}`
+    {{ probes[0].data_source.from_expression }}
   WHERE
         {{ config.population.data_source.submission_date_column }} = DATE('{{ submission_date }}')
     GROUP BY
@@ -91,11 +91,11 @@ merged_histograms AS (
     joined_histograms
   CROSS JOIN
     UNNEST(metrics)
-  {% if config.population.branches != [] or config.population.boolean_pref %}
+  {% if config.population.branches|length > 0  or config.population.boolean_pref %}
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
         -- and fall back to branches labeled as enabled/disabled
-        {% if config.population.branches != [] %}
+        {% if config.population.branches|length > 0 %}
         {% for branch in config.population.branches %}
           "{{ branch }}"
           {{ "," if not loop.last else "" }}
@@ -141,14 +141,13 @@ normalized_histograms AS (
   FROM merged_histograms
   CROSS JOIN UNNEST(metrics)
 )
-{% if first_run or str(config.xaxis) == "submission_date" -%}
+{% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
   * 
 FROM 
 normalized_histograms
 {% else -%}
 SELECT
-    '{{ submission_date }}' AS submission_date,
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
       IF(_current.value IS NOT NULL,
         IF(_prev.value IS NOT NULL, mozfun.hist.merge([_current.value, _prev.value]), _current.value),
@@ -157,8 +156,11 @@ SELECT
     )
 FROM
     normalized_histograms _current
-FULL JOIN
-    `{{ gcp_project }}.{{ dataset }}.{{ slug }}_histogram` _prev
+FULL JOIN (
+  SELECT * FROM
+    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
+  WHERE submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)
+) AS _prev
 ON 
   DATE_SUB(_prev.submission_date, INTERVAL 1 DAY) = _current.submission_date AND
   _prev.client_id = _current.client_id AND
@@ -167,7 +169,6 @@ ON
       _prev.{{ dimension.name }} = _current.{{ dimension.name }} AND
   {% endfor -%}
   _prev.branch = _current.branch 
-WHERE _prev.submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)
 {% endif %}
 
 

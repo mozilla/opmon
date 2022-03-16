@@ -1,11 +1,11 @@
 {{ header }}
 
 CREATE OR REPLACE VIEW
-  `{{ gcp_project }}.operational_monitoring.{{ slug }}_scalar`
+  `{{ gcp_project }}.{{ dataset }}.{{ normalized_slug }}_scalar`
 AS
 WITH valid_builds AS (
     SELECT build_id
-    FROM `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar`
+    FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
     WHERE {% include 'where_clause.sql' -%}
     GROUP BY 1
     -- todo adjust thresholds
@@ -15,7 +15,7 @@ WITH valid_builds AS (
 filtered_scalars AS (
     SELECT *
     FROM valid_builds
-    INNER JOIN `{{ gcp_project }}.{{ dataset }}.{{ slug }}_scalar`
+    INNER JOIN `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
     USING (build_id)
     WHERE {% include 'where_clause.sql' -%}
 )

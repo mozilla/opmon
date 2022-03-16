@@ -3,7 +3,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from functools import partial
-from multiprocessing.pool import Pool
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Iterable, Tuple
 
@@ -50,6 +50,7 @@ dataset_id_option = click.option(
 slug_option = click.option(
     "--slug",
     help="Experimenter or Normandy slug associated with the project to (re)run the analysis for",
+    required=False,
 )
 
 config_file_option = click.option(
@@ -118,10 +119,14 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
     # get and resolve configs for projects
     configs = []
     for external_config in external_configs.configs:
+        if slug:
+            if external_config.slug != slug:
+                continue
+
         experiment = experiments.with_slug(external_config.slug)
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
 
-        if platform not in external_config.definitions:
+        if platform not in external_configs.definitions:
             logger.exception(
                 str(f"Invalid platform {platform}"),
                 exc_info=None,
@@ -129,38 +134,39 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
             )
             continue
 
-        platform_definitions = external_config.definitions[platform]
-        spec = external_config.spec
-        spec.merge(platform_definitions)
+        platform_definitions = external_configs.definitions[platform]
+        spec = platform_definitions.spec
+        spec.merge(external_config.spec)
         configs.append((external_config.slug, spec.resolve(experiment)))
 
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
-    configs = {
+    configs = [
         (k, cfg)
         for (k, cfg) in configs
-        if cfg.start_date <= prior_date and cfg.end_date >= prior_date
-    }
-
-    def _run(
-        project_id: str,
-        dataset_id: str,
-        submission_date: datetime,
-        config: Tuple[str, MonitoringConfiguration],
-    ):
-        monitoring = Monitoring(
-            project_id=project_id, dataset_id=dataset_id, slug=config[0], config=config[1]
-        )
-        monitoring.run(submission_date)
-        return True
+        if cfg.project.start_date <= prior_date and cfg.project.end_date >= prior_date
+    ]
 
     run = partial(_run, project_id, dataset_id, date)
 
-    with Pool(parallelism) as pool:
+    with ThreadPool(parallelism) as pool:
         pool.map(run, configs)
 
     success = True
     sys.exit(0 if success else 1)
+
+
+def _run(
+    project_id: str,
+    dataset_id: str,
+    submission_date: datetime,
+    config: Tuple[str, MonitoringConfiguration],
+):
+    monitoring = Monitoring(
+        project=project_id, dataset=dataset_id, slug=config[0], config=config[1]
+    )
+    monitoring.run(submission_date)
+    return True
 
 
 @cli.command("validate_config")

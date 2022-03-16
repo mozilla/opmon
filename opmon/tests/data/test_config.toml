@@ -6,7 +6,7 @@ probes = [
     "content_process_max", 
     "child_process_launch_ms", 
     "content_process_count",
-    "pinned_event_count",
+    "tab_pinned_event_count",
     "tab_open_event_count"
 ]
 

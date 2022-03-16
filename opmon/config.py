@@ -227,7 +227,11 @@ class PopulationSpec:
             boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
             channel=self.channel or (experiment.channel if experiment else None),
             branches=self.branches
-            or ([branch.slug for branch in experiment.branches] if experiment else []),
+            or (
+                [branch.slug for branch in experiment.branches]
+                if experiment and self.boolean_pref is None
+                else []
+            ),
         )
 
     def merge(self, other: "PopulationSpec") -> None:
@@ -279,9 +283,12 @@ class ProjectSpec:
             name=self.name or (experiment.name if experiment else None),
             xaxis=self.xaxis or MonitoringPeriod.DAY,
             start_date=_parse_date(
-                self.start_date or (experiment.start_date if experiment else None)
+                self.start_date
+                or (experiment.start_date.strftime("%Y-%m-%d") if experiment else None)
             ),
-            end_date=_parse_date(self.end_date or (experiment.end_date if experiment else None)),
+            end_date=_parse_date(
+                self.end_date or (experiment.end_date.strftime("%Y-%m-%d") if experiment else None)
+            ),
             population=self.population.resolve(spec, experiment),
         )
 
