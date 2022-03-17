@@ -1,14 +1,13 @@
-from opmon import monitoring
-from opmon.config import MonitoringConfiguration, MonitoringSpec
-from opmon.monitoring import Monitoring
-from opmon import errors
-
+from datetime import datetime
 from textwrap import dedent
 
-from datetime import datetime
-import toml
 import pytest
 import pytz
+import toml
+
+from opmon import errors
+from opmon.config import MonitoringConfiguration, MonitoringSpec
+from opmon.monitoring import Monitoring
 
 
 class TestMonitoring:
