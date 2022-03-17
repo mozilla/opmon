@@ -91,20 +91,6 @@ merged_histograms AS (
     joined_histograms
   CROSS JOIN
     UNNEST(metrics)
-  {% if config.population.branches|length > 0  or config.population.boolean_pref %}
-    WHERE branch IN (
-        -- If branches are not defined, assume it's a rollout
-        -- and fall back to branches labeled as enabled/disabled
-        {% if config.population.branches|length > 0 %}
-        {% for branch in config.population.branches %}
-          "{{ branch }}"
-          {{ "," if not loop.last else "" }}
-        {% endfor %}
-        {% elif config.population.boolean_pref %}
-        "enabled", "disabled"
-        {% endif %}
-    )
-  {% endif %}
   GROUP BY
     submission_date,
     client_id,
@@ -141,7 +127,7 @@ normalized_histograms AS (
   FROM merged_histograms
   CROSS JOIN UNNEST(metrics)
 )
-{% if first_run or config.xaxis.value == "submission_date" -%}
+{% if first_run or config.xaxis.value == "day" -%}
 SELECT
   * 
 FROM 

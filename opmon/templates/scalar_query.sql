@@ -48,7 +48,7 @@ joined_scalars AS (
     population.branch AS branch,
     ARRAY_CONCAT(
       {% for data_source, probes in probes_per_dataset.items() -%}
-        merged_scalars_{{ data_source }}.metrics
+        COALESCE(merged_scalars_{{ data_source }}.metrics, [])
         {{ "," if not loop.last else "" }}
       {% endfor -%}
     ) AS metrics

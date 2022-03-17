@@ -147,7 +147,7 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
         if cfg.project.start_date <= prior_date and cfg.project.end_date >= prior_date
     ]
 
-    run = partial(_run, project_id, dataset_id, date)
+    run = partial(_run, project_id, dataset_id, prior_date)
 
     with ThreadPool(parallelism) as pool:
         pool.map(run, configs)

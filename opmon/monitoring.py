@@ -144,7 +144,6 @@ class Monitoring:
 
         sql_filename = QUERY_FILENAME.format(data_type)
         sql = self._render_sql(sql_filename, render_kwargs)
-        print(sql)
         return sql
 
     def _get_data_type_view_sql(self, data_type: str) -> str:
