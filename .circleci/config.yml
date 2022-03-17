@@ -1,1 +1,59 @@
 version: 2.1
+
+# See https://circleci.com/orbs/registry/orb/circleci/gcp-gcr
+orbs:
+  gcp-gcr: circleci/gcp-gcr@0.11.0
+
+jobs:
+  build:
+    docker:
+    - image: python:3.8
+    steps:
+    - checkout
+    - restore_cache:
+        keys:
+          # when lock files change, use increasingly general patterns to restore cache
+          - &cache_key
+            python-packages-v1-{{ .Branch }}-{{ checksum "requirements.in" }}-{{ checksum "requirements.txt" }}
+          - python-packages-v1-{{ .Branch }}-{{ checksum "requirements.in" }}-
+          - python-packages-v1-{{ .Branch }}-
+          - python-packages-v1-
+    - &build
+      run:
+        name: Build
+        command: |
+          python3.8 -m venv venv/
+          venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
+    - run:
+        name: PyTest
+        command: venv/bin/pytest --black --flake8 --ignore=opmon/tests/integration/
+    - run:
+        name: isort
+        command: venv/bin/isort --check opmon
+    - run:
+        name: Mypy
+        command: venv/bin/mypy opmon
+    - save_cache:
+        paths:
+        - venv/
+        key: *cache_key
+    - &build
+      run:
+        name: Build
+        command: |
+          python3.8 -m venv venv/
+          venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
+
+workflows:
+  version: 2.1
+  build-and-deploy:
+    jobs:
+      - build
+      - gcp-gcr/build-and-push-image:
+          requires:
+            - build
+          image: opmon
+          filters:
+            branches:
+              only:
+                main
