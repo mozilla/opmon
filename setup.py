@@ -39,9 +39,7 @@ setup(
     packages=[
         "opmon",
         "opmon.logging",
-        "opmon.templates",
         "opmon.tests",
-        "opmon.tests.integration",
     ],
     package_data={
         "opmon.templates": ["*.sql"],
