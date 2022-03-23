@@ -77,7 +77,7 @@ flattened_scalars AS (
     )
     {% endif -%}
 )
-{% if first_run or config.xaxis.value == "day" -%}
+{% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
     *
 FROM

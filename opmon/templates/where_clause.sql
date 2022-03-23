@@ -1,4 +1,4 @@
-{% if config.xaxis.value == "day" %}
+{% if config.xaxis.value == "submission_date" %}
   {% if config.start_date %}
   DATE(submission_date) >= DATE("{{ config.start_date }}")
   {% else %}

@@ -6,7 +6,7 @@ import attr
 
 class MonitoringPeriod(enum.Enum):
     BUILD_ID = "build_id"
-    DAY = "day"
+    DAY = "submission_date"
 
 
 class Channel(enum.Enum):

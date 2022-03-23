@@ -23,7 +23,7 @@ filtered_histograms AS (
 normalized AS (
     SELECT
         client_id,
-        {% if config.xaxis.value == "day" -%}
+        {% if config.xaxis.value == "submission_date" -%}
         submission_date,
         {% else -%}
         build_id,
@@ -53,7 +53,7 @@ normalized AS (
         FROM filtered_histograms
         GROUP BY
         client_id,
-        {% if config.xaxis.value == "day" -%}
+        {% if config.xaxis.value == "submission_date" -%}
         submission_date,
         {% else -%}
         build_id,
@@ -68,7 +68,7 @@ normalized AS (
 -- so we can use the histogram jackknife percentile function.
 SELECT
     client_id,
-    {% if config.xaxis.value == "day" -%}
+    {% if config.xaxis.value == "submission_date" -%}
     submission_date,
     {% else -%}
     build_id,

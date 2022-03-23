@@ -127,7 +127,7 @@ normalized_histograms AS (
   FROM merged_histograms
   CROSS JOIN UNNEST(metrics)
 )
-{% if first_run or config.xaxis.value == "day" -%}
+{% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
   * 
 FROM 

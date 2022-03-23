@@ -1,5 +1,5 @@
 [project]
-xaxis = "day"
+xaxis = "submission_date"
 start_date = "2022-01-01"
 platform = "firefox_desktop"
 probes = [
