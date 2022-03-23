@@ -40,6 +40,7 @@ setup(
         "opmon",
         "opmon.logging",
         "opmon.tests",
+        "opmon.templates",
     ],
     package_data={
         "opmon.templates": ["*.sql"],
