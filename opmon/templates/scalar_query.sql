@@ -86,6 +86,7 @@ FROM
 -- if data is aggregated by build ID, then aggregate data with previous runs
 SELECT
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
+      DATE('{{ submission_date }}') AS submission_date,
       IF(_current.agg_type IS NOT NULL,
         CASE _current.agg_type
           WHEN "SUM" THEN SAFE_CAST(_current.value AS FLOAT64) + SAFE_CAST(_prev.value AS FLOAT64)

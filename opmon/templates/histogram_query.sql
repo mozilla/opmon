@@ -91,6 +91,20 @@ merged_histograms AS (
     joined_histograms
   CROSS JOIN
     UNNEST(metrics)
+  {% if config.population.branches|length > 0 or config.population.boolean_pref %}
+  WHERE branch IN (
+      -- If branches are not defined, assume it's a rollout
+      -- and fall back to branches labeled as enabled/disabled
+      {% if config.population.branches|length > 0  -%}
+      {% for branch in config.population.branches -%}
+        "{{ branch }}"
+        {{ "," if not loop.last else "" }}
+      {% endfor -%}
+      {% elif config.population.boolean_pref -%}
+      "enabled", "disabled"
+      {% endif -%}
+  )
+  {% endif -%}
   GROUP BY
     submission_date,
     client_id,
@@ -135,6 +149,7 @@ normalized_histograms
 {% else -%}
 SELECT
     IF(_current.client_id IS NOT NULL, _current, _prev).* REPLACE (
+      DATE('{{ submission_date }}') AS submission_date,
       IF(_current.value IS NOT NULL,
         IF(_prev.value IS NOT NULL, mozfun.hist.merge([_current.value, _prev.value]), _current.value),
         _prev.value
