@@ -66,7 +66,7 @@ parallelism_option = click.option(
 @click.option(
     "--log_project_id",
     "--log-project-id",
-    default="moz-fx-data-experiments",
+    default="moz-fx-data-shared-prod",
     help="GCP project to write logs to",
 )
 @click.option(
@@ -104,14 +104,13 @@ def cli(
 @click.option(
     "--date",
     type=ClickDate(),
-    help="Date for which experiments should be analyzed",
+    help="Date for which projects should be analyzed",
     metavar="YYYY-MM-DD",
     required=True,
 )
 @slug_option
 @parallelism_option
-@click.pass_context
-def run(ctx, project_id, dataset_id, date, slug, parallelism):
+def run(project_id, dataset_id, date, slug, parallelism):
     external_configs = ExternalConfigCollection.from_github_repo()
     platform_definitions = external_configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
@@ -152,7 +151,7 @@ def run(ctx, project_id, dataset_id, date, slug, parallelism):
     with ThreadPool(parallelism) as pool:
         pool.map(run, configs)
 
-    success = True
+    success = True  # todo
     sys.exit(0 if success else 1)
 
 
@@ -167,6 +166,91 @@ def _run(
     )
     monitoring.run(submission_date)
     return True
+
+
+@cli.command()
+@project_id_option
+@dataset_id_option
+@click.option(
+    "--start_date",
+    "--start-date",
+    type=ClickDate(),
+    help="Date for which project should be started to get analyzed",
+    metavar="YYYY-MM-DD",
+    required=True,
+)
+@click.option(
+    "--end_date",
+    "--end-date",
+    type=ClickDate(),
+    help="Date for which project should be stop to get analyzed",
+    metavar="YYYY-MM-DD",
+    required=True,
+)
+@click.option(
+    "--slug",
+    help="Experimenter or Normandy slug associated with the project to backfill the analysis for",
+    required=True,
+)
+def backfill(project_id, dataset_id, start_date, end_date, slug):
+    """Backfill project."""
+    external_configs = ExternalConfigCollection.from_github_repo()
+    platform_definitions = external_configs.definitions
+    experiments = ExperimentCollection.from_experimenter().ever_launched()
+
+    # get and resolve configs for projects
+    config = None
+    for external_config in external_configs.configs:
+        if external_config.slug != slug:
+            continue
+
+        experiment = experiments.with_slug(external_config.slug)
+        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+
+        if platform not in external_configs.definitions:
+            logger.exception(
+                str(f"Invalid platform {platform}"),
+                exc_info=None,
+                extra={"experiment": experiment.normandy_slug},
+            )
+            continue
+
+        platform_definitions = external_configs.definitions[platform]
+        spec = platform_definitions.spec
+        spec.merge(external_config.spec)
+        config = (external_config.slug, spec.resolve(experiment))
+        break
+
+    # determine backfill time frame based on start and end dates
+    start_date = (
+        start_date
+        if config[1].project.start_date is None
+        else max(config[1].project.start_date, start_date)
+    )
+    end_date = (
+        end_date
+        if config[1].project.end_date is None
+        else min(config[1].project.end_date, end_date)
+    )
+
+    success = True
+
+    print(f"Start running backfill for {config[0]}: {start_date} to {end_date}")
+    # backfill needs to be run sequentially since data is required from previous runs
+    for date in [
+        start_date + timedelta(days=d) for d in range(0, (end_date - start_date).days + 1)
+    ]:
+        print(f"Backfill {date}")
+        try:
+            monitoring = Monitoring(
+                project=project_id, dataset=dataset_id, slug=config[0], config=config[1]
+            )
+            monitoring.run(date)
+        except Exception as e:
+            print(f"Error backfilling {config[0]}: {e}")
+            success = False
+
+    sys.exit(0 if success else 1)
 
 
 @cli.command("validate_config")

@@ -89,13 +89,13 @@ SELECT
       DATE('{{ submission_date }}') AS submission_date,
       IF(_current.agg_type IS NOT NULL,
         CASE _current.agg_type
-          WHEN "SUM" THEN SAFE_CAST(_current.value AS FLOAT64) + SAFE_CAST(_prev.value AS FLOAT64)
-          WHEN "MAX" THEN GREATEST(SAFE_CAST(_current.value AS FLOAT64), SAFE_CAST(_prev.value AS FLOAT64))
+          WHEN "SUM" THEN COALESCE(SAFE_CAST(_current.value AS FLOAT64), 0) + COALESCE(SAFE_CAST(_prev.value AS FLOAT64), 0)
+          WHEN "MAX" THEN GREATEST(COALESCE(SAFE_CAST(_current.value AS FLOAT64), 0), COALESCE(SAFE_CAST(_prev.value AS FLOAT64), 0))
           ELSE SAFE_CAST(_current.value AS FLOAT64)
         END,
         CASE _prev.agg_type
-          WHEN "SUM" THEN SAFE_CAST(_current.value AS FLOAT64) + SAFE_CAST(_prev.value AS FLOAT64)
-          WHEN "MAX" THEN GREATEST(SAFE_CAST(_current.value AS FLOAT64), SAFE_CAST(_prev.value AS FLOAT64))
+          WHEN "SUM" THEN COALESCE(SAFE_CAST(_current.value AS FLOAT64), 0) + COALESCE(SAFE_CAST(_prev.value AS FLOAT64), 0)
+          WHEN "MAX" THEN GREATEST(COALESCE(SAFE_CAST(_current.value AS FLOAT64), 0), COALESCE(SAFE_CAST(_prev.value AS FLOAT64), 0))
           ELSE SAFE_CAST(_prev.value AS FLOAT64)
         END
       ) AS value
