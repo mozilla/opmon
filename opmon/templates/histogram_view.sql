@@ -96,5 +96,5 @@ SELECT
         value.histogram_type,
         value.range,
         ARRAY(SELECT AS STRUCT CAST(keyval.key AS FLOAT64), keyval.value FROM UNNEST(value.values) keyval)
-    ) AS value
+    ) AS histogram
 FROM normalized
