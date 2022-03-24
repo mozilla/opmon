@@ -18,6 +18,12 @@ filtered_scalars AS (
     INNER JOIN `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
     USING (build_id)
     WHERE {% include 'where_clause.sql' -%}
+    {% if config.xaxis.value == "build_id" -%}
+    AND DATE(submission_date) = (
+      SELECT MAX(submission_date)
+      FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
+    )
+    {% endif -%}
 ),
 
 log_min_max AS (
