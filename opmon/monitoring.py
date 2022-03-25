@@ -212,4 +212,15 @@ class Monitoring:
         }
         query = self._render_sql(PROJECTS_FILENAME, render_kwargs=render_kwargs)
         self.bigquery.execute(query)
+
+        # Create view
+        view_name = PROJECTS_TABLE.split("_")[0]
+        view_query = f"""
+            CREATE OR REPLACE VIEW `{self.project}.{self.dataset}.{view_name}` AS (
+                SELECT * 
+                FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}`
+            )
+        """
+
+        self.bigquery.execute(view_query)
         print(f"Updated project metadata for {self.slug}")

@@ -28,7 +28,7 @@ WITH population AS (
           NULL AS branch,
         {% endif %}
     FROM
-        `{{ config.population.data_source.from_expression }}`
+        {{ config.population.data_source.from_expression }}
     WHERE
         DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
         AND normalized_channel = '{{ config.population.channel.value }}'

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import sys
@@ -72,11 +73,11 @@ parallelism_option = click.option(
 @click.option(
     "--log_dataset_id",
     "--log-dataset-id",
-    default="monitoring",
+    default="operational_monitoring_derived",
     help="Dataset to write logs to",
 )
 @click.option(
-    "--log_table_id", "--log-table-id", default="opmon_logs", help="Table to write logs to"
+    "--log_table_id", "--log-table-id", default="opmon_logs_v1", help="Table to write logs to"
 )
 @click.option("--log_to_bigquery", "--log-to-bigquery", is_flag=True, default=False)
 @click.pass_context
@@ -134,7 +135,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
             continue
 
         platform_definitions = external_configs.definitions[platform]
-        spec = platform_definitions.spec
+        spec = copy.deepcopy(platform_definitions.spec)
         spec.merge(external_config.spec)
         configs.append((external_config.slug, spec.resolve(experiment)))
 
