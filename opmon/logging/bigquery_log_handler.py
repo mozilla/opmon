@@ -17,7 +17,7 @@ class BigQueryLogHandler(BufferingHandler):
         table_id: str,
         client: Optional[bigquery.Client] = None,
         capacity=50,
-    ) -> "BigQueryLogHandler":
+    ):
         """Instantiate a `BigQueryLogHandler`."""
         self.project_id = project_id
         self.dataset_id = dataset_id

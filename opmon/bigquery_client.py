@@ -1,5 +1,5 @@
 """BigQuery handler."""
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import attr
 from google.cloud import bigquery
@@ -30,25 +30,25 @@ class BigQueryClient:
         dataset: Optional[str] = None,
     ) -> None:
         """Execute a SQL query and applies the provided parameters."""
-        dataset = bigquery.dataset.DatasetReference.from_string(
+        bq_dataset = bigquery.dataset.DatasetReference.from_string(
             dataset if dataset else self.dataset,
             default_project=self.project,
         )
 
-        kwargs = {
+        kwargs: Dict[str, Any] = {
             "allow_large_results": True,
             "use_query_cache": False,
         }
 
         if destination_table:
-            kwargs["destination"] = dataset.table(destination_table)
+            kwargs["destination"] = bq_dataset.table(destination_table)
             kwargs["write_disposition"] = bigquery.job.WriteDisposition.WRITE_TRUNCATE
             kwargs["schema_update_options"] = bigquery.job.SchemaUpdateOption.ALLOW_FIELD_ADDITION
 
         if write_disposition:
             kwargs["write_disposition"] = write_disposition
 
-        if clustering:
+        if clustering is not None:
             kwargs["clustering_fields"] = clustering
 
         if time_partitioning:
@@ -59,7 +59,7 @@ class BigQueryClient:
             else:
                 kwargs["time_partitioning"] = bigquery.TimePartitioning(field=time_partitioning)
 
-        config = bigquery.job.QueryJobConfig(default_dataset=dataset, **kwargs)
+        config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **kwargs)
         job = self.client.query(query, config)
         # block on result
         job.result()

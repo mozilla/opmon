@@ -282,16 +282,20 @@ def validate_config(path: Iterable[os.PathLike]):
         print(f"Evaluating {config_file}...")
         entity = entity_from_path(config_file)
         experiment = experiments.with_slug(entity.slug)
-        platform = entity.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform = (
+            entity.spec.project.platform
+            or (experiment.app_name if experiment else None)
+            or DEFAULT_PLATFORM
+        )
 
         if platform not in platform_definitions:
             print(f"Invalid platform {platform}")
             dirty = True
             continue
 
-        platform_definitions = external_configs.definitions[platform]
+        platform_definition = external_configs.definitions[platform]
         spec = entity.spec
-        spec.merge(platform_definitions.spec)
+        spec.merge(platform_definition.spec)
 
         try:
             entity.validate(experiment)

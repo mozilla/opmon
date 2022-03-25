@@ -158,7 +158,7 @@ class ProbeReference:
 
     name: str
 
-    def resolve(self, spec: "MonitoringSpec") -> List[Probe]:
+    def resolve(self, spec: "MonitoringSpec") -> Probe:
         """Return the `DataSource` that this is referencing."""
         if self.name in spec.probes.definitions:
             return spec.probes.definitions[self.name].resolve(spec)
@@ -223,7 +223,7 @@ class DimensionReference:
 
     name: str
 
-    def resolve(self, spec: "MonitoringSpec") -> List[Dimension]:
+    def resolve(self, spec: "MonitoringSpec") -> Dimension:
         """Return the referenced `Dimension`."""
         if self.name in spec.dimensions.definitions:
             return spec.dimensions.definitions[self.name].resolve(spec)
@@ -241,7 +241,7 @@ class PopulationConfiguration:
 
     data_source: Optional[DataSource] = None
     boolean_pref: Optional[str] = None
-    channel: Channel = attr.ib(default=Channel.NIGHTLY)
+    channel: Optional[Channel] = attr.ib(default=Channel.NIGHTLY)
     branches: List[str] = attr.Factory(list)
 
 
@@ -319,10 +319,19 @@ class ProjectSpec:
             xaxis=self.xaxis or MonitoringPeriod.DAY,
             start_date=_parse_date(
                 self.start_date
-                or (experiment.start_date.strftime("%Y-%m-%d") if experiment else None)
+                or (
+                    experiment.start_date.strftime("%Y-%m-%d")
+                    if experiment and experiment.start_date
+                    else None
+                )
             ),
             end_date=_parse_date(
-                self.end_date or (experiment.end_date.strftime("%Y-%m-%d") if experiment else None)
+                self.end_date
+                or (
+                    experiment.end_date.strftime("%Y-%m-%d")
+                    if experiment and experiment.end_date
+                    else None
+                )
             ),
             population=self.population.resolve(spec, experiment),
         )
@@ -350,8 +359,8 @@ class MonitoringConfiguration:
     """
 
     project: Optional[ProjectConfiguration] = None
-    probes: Dict[str, Probe] = attr.Factory(dict)
-    dimensions: Dict[str, Dimension] = attr.Factory(dict)
+    probes: List[Probe] = attr.Factory(list)
+    dimensions: List[Dimension] = attr.Factory(list)
 
 
 @attr.s(auto_attribs=True)

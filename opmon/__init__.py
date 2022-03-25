@@ -24,9 +24,9 @@ class Channel(enum.Enum):
     RELEASE = "release"
 
     @classmethod
-    def has_value(cls, value) -> bool:
+    def has_value(cls, value: str) -> bool:
         """Check if a specific value is represented by the enum."""
-        return value in cls._value2member_map_
+        return value in cls._value2member_map_  # type: ignore
 
 
 @attr.s(auto_attribs=True)

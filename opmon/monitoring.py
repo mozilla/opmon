@@ -31,9 +31,6 @@ DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 # todo: adjust thresholds
 USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 1, Channel.BETA: 1, Channel.RELEASE: 1}
 
-# This is a mapping of project slug to metadata.
-om_projects = {}
-
 
 @attr.s(auto_attribs=True)
 class Monitoring:
@@ -102,7 +99,7 @@ class Monitoring:
                 f"No probes for data type {data_type} configured for {self.slug}.",
                 extra={"experiment": self.slug},
             )
-            return
+            return ""
 
         # todo:
         # xaxis metadata to be used to decide whether the entire table is replaced
@@ -142,9 +139,9 @@ class Monitoring:
             "dataset": self.dataset,
             "first_run": first_run,
             "dimensions": self.config.dimensions,
-            "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
-                self.config.project.population.channel
-            ],
+            # "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
+            #     self.config.project.population.channel
+            # ],
             "probes_per_dataset": probes_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
@@ -168,6 +165,9 @@ class Monitoring:
 
     def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
         """Check whether the opmon project can be run based on configuration parameters."""
+        if self.config.project is None:
+            raise errors.ConfigurationException("Configuration has no project config.")
+
         if self.config.project.start_date is None:
             raise errors.NoStartDateException(self.slug)
 
@@ -186,7 +186,9 @@ class Monitoring:
 
         for data_type in DATA_TYPES:
             data_type_sql = self._get_data_type_sql(
-                submission_date=self.config.project.start_date, data_type=data_type, first_run=True
+                submission_date=self.config.project.start_date,  # type: ignore
+                data_type=data_type,
+                first_run=True,
             )
             dry_run_query(data_type_sql)
 
@@ -203,7 +205,9 @@ class Monitoring:
             first_run = True
 
         probes = self.config.probes
-        probes = [{"name": probe.name, "agg_type": probe.type} for probe in probes if probe.type]
+        render_probes = [
+            {"name": probe.name, "agg_type": probe.type} for probe in probes if probe.type
+        ]
 
         render_kwargs = {
             "gcp_project": self.project,
@@ -212,7 +216,7 @@ class Monitoring:
             "config": self.config.project,
             "slug": self.slug,
             "dimensions": self.config.dimensions,
-            "probes": probes,
+            "probes": render_probes,
             "first_run": first_run,
         }
         query = self._render_sql(PROJECTS_FILENAME, render_kwargs=render_kwargs)
