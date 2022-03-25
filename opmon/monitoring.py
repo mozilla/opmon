@@ -217,7 +217,7 @@ class Monitoring:
         view_name = PROJECTS_TABLE.split("_")[0]
         view_query = f"""
             CREATE OR REPLACE VIEW `{self.project}.{self.dataset}.{view_name}` AS (
-                SELECT * 
+                SELECT *
                 FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}`
             )
         """
