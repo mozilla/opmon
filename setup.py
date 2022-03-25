@@ -1,7 +1,10 @@
+"""Setup."""
+
 from setuptools import setup
 
 
 def text_from_file(path):
+    """Return text from file."""
     with open(path, encoding="utf-8") as f:
         return f.read()
 

@@ -107,7 +107,7 @@ class TestMonitoring:
             monitoring._get_data_type_sql(
                 submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
             )
-            is None
+            == ""
         )
 
     def test_get_data_type_sql(self):
