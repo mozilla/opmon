@@ -1,3 +1,5 @@
+"""Interface to Experimenter."""
+
 import datetime as dt
 import logging
 from typing import List, Optional
@@ -16,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True, frozen=True)
 class Variant:
+    """Experiment variant."""
+
     is_control: bool
     slug: str
     ratio: int
@@ -23,15 +27,15 @@ class Variant:
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True, frozen=True)
 class Branch:
+    """Experiment branch."""
+
     slug: str
     ratio: int
 
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True, frozen=True)
 class Experiment:
-    """
-    Common Experimenter experiment and rollout representation.
-    """
+    """Common Experimenter experiment and rollout representation."""
 
     experimenter_slug: Optional[str]
     normandy_slug: Optional[str]
@@ -71,6 +75,7 @@ class ExperimentV1:
 
     @classmethod
     def from_dict(cls, d) -> "ExperimentV1":
+        """Create an experiment from a dictionary."""
         converter = cattr.Converter()
         converter.register_structure_hook(
             dt.datetime,
@@ -122,14 +127,17 @@ class ExperimentV6:
 
     @property
     def appName(self) -> str:
+        """Return app name where experiment was launched on."""
         return self._appName or "firefox_desktop"
 
     @property
     def appId(self) -> str:
+        """Return app ID where experiment was launched on."""
         return self._appId or "firefox-desktop"
 
     @classmethod
     def from_dict(cls, d) -> "ExperimentV6":
+        """Create an experiment from a dictionary."""
         converter = cattr.GenConverter()
         converter.register_structure_hook(
             dt.datetime,
@@ -177,6 +185,8 @@ class ExperimentV6:
 
 @attr.s(auto_attribs=True)
 class ExperimentCollection:
+    """Collection of all the experiments from experimenter."""
+
     experiments: List[Experiment] = attr.Factory(list)
 
     MAX_RETRIES = 3
@@ -190,6 +200,7 @@ class ExperimentCollection:
 
     @classmethod
     def from_experimenter(cls, session: requests.Session = None) -> "ExperimentCollection":
+        """Fetch all experiments from Experimenter."""
         session = session or requests.Session()
         legacy_experiments_json = retry_get(
             session, cls.EXPERIMENTER_API_URL_V1, cls.MAX_RETRIES, cls.USER_AGENT
@@ -217,6 +228,7 @@ class ExperimentCollection:
         return cls(nimbus_experiments + legacy_experiments)
 
     def ever_launched(self) -> "ExperimentCollection":
+        """Return all experiments that have ever been live."""
         cls = type(self)
         return cls(
             [
@@ -227,6 +239,7 @@ class ExperimentCollection:
         )
 
     def with_slug(self, slug: str) -> Optional[Experiment]:
+        """Return all experiments with a specific slug."""
         for ex in self.experiments:
             if ex.experimenter_slug == slug or ex.normandy_slug == slug:
                 return ex

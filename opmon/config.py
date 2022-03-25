@@ -1,3 +1,5 @@
+"""OpMon config."""
+
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -9,6 +11,18 @@ from opmon import Channel, DataSource, Dimension, MonitoringPeriod, Probe
 from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
+
+
+def _validate_yyyy_mm_dd(instance: Any, attribute: Any, value: Any) -> None:
+    """Check if the provided string is a valid date string."""
+    _parse_date(value)
+
+
+def _parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
+    """Convert a date string to a date type."""
+    if not yyyy_mm_dd:
+        return None
+    return datetime.strptime(yyyy_mm_dd, "%Y-%m-%d").replace(tzinfo=pytz.utc)
 
 
 @attr.s(auto_attribs=True)
@@ -35,15 +49,18 @@ class DataSourceDefinition:
 
 @attr.s(auto_attribs=True)
 class DataSourcesSpec:
-    """Holds data source definitions.
+    """
+    Holds data source definitions.
 
     This doesn't have a resolve() method to produce a concrete DataSourcesConfiguration
-    because it's just a container for the definitions, and we don't need it after the spec phase."""
+    because it's just a container for the definitions, and we don't need it after the spec phase.
+    """
 
     definitions: Dict[str, DataSourceDefinition] = attr.Factory(dict)
 
     @classmethod
     def from_dict(cls, d: dict) -> "DataSourcesSpec":
+        """Create a `DataSourcesSpec` for a dictionary."""
         definitions = {
             k: _converter.structure({"name": k, **v}, DataSourceDefinition) for k, v in d.items()
         }
@@ -52,6 +69,7 @@ class DataSourcesSpec:
     def merge(self, other: "DataSourcesSpec"):
         """
         Merge another datasource spec into the current one.
+
         The `other` DataSourcesSpec overwrites existing keys.
         """
         self.definitions.update(other.definitions)
@@ -64,9 +82,12 @@ _converter.register_structure_hook(
 
 @attr.s(auto_attribs=True)
 class DataSourceReference:
+    """Represents a reference to a data source."""
+
     name: str
 
     def resolve(self, spec: "MonitoringSpec") -> DataSource:
+        """Return the `DataSource` that this is referencing."""
         if self.name not in spec.data_sources.definitions:
             raise ValueError(f"DataSource {self.name} has not been defined.")
 
@@ -91,6 +112,7 @@ class ProbeDefinition:
     type: Optional[str] = None
 
     def resolve(self, spec: "MonitoringSpec") -> Probe:
+        """Create and return a `Probe` instance from this definition."""
         return Probe(
             name=self.name,
             data_source=self.data_source.resolve(spec),
@@ -110,6 +132,7 @@ class ProbesSpec:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProbesSpec":
+        """Create a `ProbesSpec` from a dictionary."""
         d = dict((k.lower(), v) for k, v in d.items())
 
         definitions = {
@@ -120,6 +143,7 @@ class ProbesSpec:
     def merge(self, other: "ProbesSpec"):
         """
         Merge another probe spec into the current one.
+
         The `other` ProbesSpec overwrites existing keys.
         """
         self.definitions.update(other.definitions)
@@ -130,9 +154,12 @@ _converter.register_structure_hook(ProbesSpec, lambda obj, _type: ProbesSpec.fro
 
 @attr.s(auto_attribs=True)
 class ProbeReference:
+    """Represents a reference to a probe."""
+
     name: str
 
     def resolve(self, spec: "MonitoringSpec") -> List[Probe]:
+        """Return the `DataSource` that this is referencing."""
         if self.name in spec.probes.definitions:
             return spec.probes.definitions[self.name].resolve(spec)
         raise ValueError(f"Could not locate probe {self.name}")
@@ -152,6 +179,7 @@ class DimensionDefinition:
     description: Optional[str] = None
 
     def resolve(self, spec: "MonitoringSpec") -> Dimension:
+        """Create and return a `Dimension` from the definition."""
         return Dimension(
             name=self.name,
             data_source=self.data_source.resolve(spec),
@@ -169,6 +197,7 @@ class DimensionsSpec:
 
     @classmethod
     def from_dict(cls, d: dict) -> "DimensionsSpec":
+        """Create a `DimensionsSpec` from a dictionary."""
         d = dict((k.lower(), v) for k, v in d.items())
 
         definitions = {
@@ -179,6 +208,7 @@ class DimensionsSpec:
     def merge(self, other: "DimensionsSpec"):
         """
         Merge another dimension spec into the current one.
+
         The `other` DimensionsSpec overwrites existing keys.
         """
         self.definitions.update(other.definitions)
@@ -189,9 +219,12 @@ _converter.register_structure_hook(DimensionsSpec, lambda obj, _type: Dimensions
 
 @attr.s(auto_attribs=True)
 class DimensionReference:
+    """Represents a reference to a dimension."""
+
     name: str
 
     def resolve(self, spec: "MonitoringSpec") -> List[Dimension]:
+        """Return the referenced `Dimension`."""
         if self.name in spec.dimensions.definitions:
             return spec.dimensions.definitions[self.name].resolve(spec)
         raise ValueError(f"Could not locate dimension {self.name}")
@@ -204,6 +237,8 @@ _converter.register_structure_hook(
 
 @attr.s(auto_attribs=True, kw_only=True)
 class PopulationConfiguration:
+    """Describes the interface for defining the client population in configuration."""
+
     data_source: Optional[DataSource] = None
     boolean_pref: Optional[str] = None
     channel: Channel = attr.ib(default=Channel.NIGHTLY)
@@ -212,6 +247,8 @@ class PopulationConfiguration:
 
 @attr.s(auto_attribs=True, kw_only=True)
 class PopulationSpec:
+    """Describes the interface for defining the client population."""
+
     data_source: Optional[DataSourceReference] = None
     boolean_pref: Optional[str] = None
     channel: Optional[Channel] = None
@@ -235,12 +272,19 @@ class PopulationSpec:
         )
 
     def merge(self, other: "PopulationSpec") -> None:
+        """
+        Merge another population spec into the current one.
+
+        The `other` PopulationSpec overwrites existing keys.
+        """
         for key in attr.fields_dict(type(self)):
             setattr(self, key, getattr(other, key) or getattr(self, key))
 
 
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectConfiguration:
+    """Describes the interface for defining the project in configuration."""
+
     name: Optional[str] = None
     xaxis: MonitoringPeriod = attr.ib(default=MonitoringPeriod.DAY)
     start_date: Optional[datetime] = None
@@ -248,19 +292,10 @@ class ProjectConfiguration:
     population: PopulationConfiguration = attr.Factory(PopulationConfiguration)
 
 
-def _validate_yyyy_mm_dd(instance: Any, attribute: Any, value: Any) -> None:
-    _parse_date(value)
-
-
-def _parse_date(yyyy_mm_dd: Optional[str]) -> Optional[datetime]:
-    """Convert a date string to a date type."""
-    if not yyyy_mm_dd:
-        return None
-    return datetime.strptime(yyyy_mm_dd, "%Y-%m-%d").replace(tzinfo=pytz.utc)
-
-
 @attr.s(auto_attribs=True, kw_only=True)
 class ProjectSpec:
+    """Describes the interface for defining the project."""
+
     name: Optional[str] = None
     platform: Optional[str] = None
     xaxis: Optional[MonitoringPeriod] = None
@@ -271,6 +306,7 @@ class ProjectSpec:
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProjectSpec":
+        """Create a new `ProjectSpec` from a dictionary."""
         d = dict((k.lower(), v) for k, v in d.items())
         return _converter.structure(d, cls)
 
@@ -278,7 +314,6 @@ class ProjectSpec:
         self, spec: "MonitoringSpec", experiment: Optional[Experiment]
     ) -> ProjectConfiguration:
         """Create a `ProjectConfiguration` from the spec."""
-
         return ProjectConfiguration(
             name=self.name or (experiment.name if experiment else None),
             xaxis=self.xaxis or MonitoringPeriod.DAY,
@@ -293,6 +328,11 @@ class ProjectSpec:
         )
 
     def merge(self, other: "ProjectSpec") -> None:
+        """
+        Merge another project spec into the current one.
+
+        The `other` ProjectSpec overwrites existing keys.
+        """
         for key in attr.fields_dict(type(self)):
             if key == "population":
                 self.population.merge(other.population)
@@ -366,7 +406,7 @@ class MonitoringSpec:
         )
 
     def merge(self, other: "MonitoringSpec"):
-        """Merges another monitoring spec into the current one."""
+        """Merge another monitoring spec into the current one."""
         self.project.merge(other.project)
         self.data_sources.merge(other.data_sources)
         self.probes.merge(other.probes)

@@ -27,6 +27,7 @@ class ExternalConfig:
     spec: MonitoringSpec
 
     def validate(self, experiment: Optional[experimenter.Experiment] = None) -> None:
+        """Validate the external config."""
         conf = self.spec.resolve(experiment)
         Monitoring(
             project="no project", dataset="no dataset", slug=self.slug, config=conf
@@ -34,6 +35,7 @@ class ExternalConfig:
 
 
 def entity_from_path(path: Path) -> ExternalConfig:
+    """Load an external config from the provided file path."""
     slug = path.stem
     config_dict = toml.loads(path.read_text())
 
@@ -45,10 +47,7 @@ def entity_from_path(path: Path) -> ExternalConfig:
 
 @attr.s(auto_attribs=True)
 class ExternalConfigCollection:
-    """
-    Collection of experiment-specific configurations pulled in
-    from an external GitHub repository.
-    """
+    """Collection of OpMon configurations pulled in from an external GitHub repository."""
 
     configs: List[ExternalConfig] = attr.Factory(list)
     definitions: Dict[str, ExternalConfig] = attr.Factory(dict)

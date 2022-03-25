@@ -1,4 +1,5 @@
-from typing import Dict, Iterable, List, Mapping, Optional
+"""BigQuery handler."""
+from typing import Dict, Iterable, List, Optional
 
 import attr
 from google.cloud import bigquery
@@ -6,22 +7,17 @@ from google.cloud import bigquery
 
 @attr.s(auto_attribs=True, slots=True)
 class BigQueryClient:
+    """Handler for requests to BigQuery."""
+
     project: str
     dataset: str
     _client: Optional[bigquery.client.Client] = None
 
     @property
-    def client(self):
+    def client(self) -> bigquery.client.Client:
+        """Return BigQuery client instance."""
         self._client = self._client or bigquery.client.Client(self.project)
         return self._client
-
-    def add_labels_to_table(self, table_name: str, labels: Mapping[str, str]) -> None:
-        """Adds the provided labels to the table."""
-        table_ref = self.client.dataset(self.dataset).table(table_name)
-        table = self.client.get_table(table_ref)
-        table.labels = labels
-
-        self.client.update_table(table, ["labels"])
 
     def execute(
         self,
@@ -33,6 +29,7 @@ class BigQueryClient:
         partition_expiration_ms: Optional[int] = None,
         dataset: Optional[str] = None,
     ) -> None:
+        """Execute a SQL query and applies the provided parameters."""
         dataset = bigquery.dataset.DatasetReference.from_string(
             dataset if dataset else self.dataset,
             default_project=self.project,
@@ -69,11 +66,8 @@ class BigQueryClient:
 
     def load_table_from_json(
         self, results: Iterable[Dict], table: str, job_config: bigquery.LoadJobConfig
-    ):
+    ) -> None:
+        """Write the provided dictionary to the provided table."""
         # wait for the job to complete
         destination_table = f"{self.project}.{self.dataset}.{table}"
         self.client.load_table_from_json(results, destination_table, job_config=job_config).result()
-
-    def delete_table(self, table_id: str) -> None:
-        """Delete the table."""
-        self.client.delete_table(table_id, not_found_ok=True)

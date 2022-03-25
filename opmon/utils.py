@@ -1,3 +1,5 @@
+"""Utility methods."""
+
 import logging
 import re
 import shutil
@@ -14,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def TemporaryDirectory():
+    """Create a temporary directory."""
     name = Path(tempfile.mkdtemp())
     try:
         yield name
@@ -22,10 +25,17 @@ def TemporaryDirectory():
 
 
 def bq_normalize_name(name: str) -> str:
+    """
+    Normalize a slug.
+
+    Dashes are converted to underscores.
+    """
     return re.sub(r"[^a-zA-Z0-9_]", "_", name)
 
 
 class RetryLimitExceededException(Exception):
+    """Exception thrown when maximum retries to an API have been exceeded."""
+
     pass
 
 

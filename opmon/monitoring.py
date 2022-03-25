@@ -47,13 +47,16 @@ class Monitoring:
 
     @property
     def bigquery(self):
+        """Return the BigQuery client instance."""
         return BigQueryClient(project=self.project, dataset=self.dataset)
 
     @property
     def normalized_slug(self):
+        """Return the normalized slug."""
         return bq_normalize_name(self.slug)
 
     def run(self, submission_date):
+        """Execute and generate the operational monitoring ETL for a specific date."""
         for data_type in DATA_TYPES:
             # Periodically print so airflow gke operator doesn't think task is dead
             print(f"Run query for {self.slug} for {data_type} types")
@@ -62,6 +65,7 @@ class Monitoring:
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
+        """Generate and execute the ETL for a specific data type."""
         self._check_runnable(submission_date)
         date_partition = str(submission_date).replace("-", "").split(" ")[0]
         destination_table = f"{self.normalized_slug}_{data_type}${date_partition}"
@@ -78,6 +82,7 @@ class Monitoring:
         self.bigquery.execute(self._get_data_type_view_sql(data_type=data_type))
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
+        """Render and return the SQL from a template."""
         file_loader = FileSystemLoader(TEMPLATE_FOLDER)
         env = Environment(loader=file_loader)
         template = env.get_template(template_file)
@@ -150,7 +155,7 @@ class Monitoring:
         return sql
 
     def _get_data_type_view_sql(self, data_type: str) -> str:
-        """Returns the SQL to create a BigQuery view."""
+        """Return the SQL to create a BigQuery view."""
         sql_filename = VIEW_FILENAME.format(data_type)
         render_kwargs = {
             "gcp_project": self.project,
@@ -162,7 +167,7 @@ class Monitoring:
         return sql
 
     def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
-        """Checks whether the opmon project can be run based on configuration parameters."""
+        """Check whether the opmon project can be run based on configuration parameters."""
         if self.config.project.start_date is None:
             raise errors.NoStartDateException(self.slug)
 

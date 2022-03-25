@@ -1,3 +1,4 @@
+"""OpMon CLI."""
 import copy
 import logging
 import os
@@ -25,9 +26,12 @@ DEFAULT_PLATFORM = "firefox_desktop"
 
 
 class ClickDate(click.ParamType):
+    """Converter for click date string parameters to datetime."""
+
     name = "date"
 
     def convert(self, value, param, ctx):
+        """Convert a string to datetime."""
         if isinstance(value, datetime):
             return value
         return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=pytz.utc)
@@ -88,6 +92,7 @@ def cli(
     log_table_id,
     log_to_bigquery,
 ):
+    """Initialize CLI."""
     log_config = LogConfiguration(
         log_project_id,
         log_dataset_id,
@@ -112,6 +117,7 @@ def cli(
 @slug_option
 @parallelism_option
 def run(project_id, dataset_id, date, slug, parallelism):
+    """Execute the monitoring ETL for a specific date."""
     external_configs = ExternalConfigCollection.from_github_repo()
     platform_definitions = external_configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
@@ -134,6 +140,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
             )
             continue
 
+        # resolve config by applying platform and custom config specs
         platform_definitions = external_configs.definitions[platform]
         spec = copy.deepcopy(platform_definitions.spec)
         spec.merge(external_config.spec)
@@ -149,10 +156,11 @@ def run(project_id, dataset_id, date, slug, parallelism):
 
     run = partial(_run, project_id, dataset_id, prior_date)
 
+    success = False
     with ThreadPool(parallelism) as pool:
-        pool.map(run, configs)
+        results = pool.map(run, configs)
+        success = all(results)
 
-    success = True  # todo
     sys.exit(0 if success else 1)
 
 
@@ -162,6 +170,7 @@ def _run(
     submission_date: datetime,
     config: Tuple[str, MonitoringConfiguration],
 ):
+    """Execute by parallel processes."""
     monitoring = Monitoring(
         project=project_id, dataset=dataset_id, slug=config[0], config=config[1]
     )
@@ -194,7 +203,7 @@ def _run(
     required=True,
 )
 def backfill(project_id, dataset_id, start_date, end_date, slug):
-    """Backfill project."""
+    """Backfill a specific project."""
     external_configs = ExternalConfigCollection.from_github_repo()
     platform_definitions = external_configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()

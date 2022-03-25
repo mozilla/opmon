@@ -1,3 +1,5 @@
+"""BigQuery Logger."""
+
 import datetime
 from logging.handlers import BufferingHandler
 from typing import Optional
@@ -15,7 +17,8 @@ class BigQueryLogHandler(BufferingHandler):
         table_id: str,
         client: Optional[bigquery.Client] = None,
         capacity=50,
-    ):
+    ) -> "BigQueryLogHandler":
+        """Instantiate a `BigQueryLogHandler`."""
         self.project_id = project_id
         self.dataset_id = dataset_id
         self.table_id = table_id
@@ -26,7 +29,7 @@ class BigQueryLogHandler(BufferingHandler):
         super().__init__(capacity)
 
     def _buffer_to_json(self, buffer):
-        """Converts the records in the buffer to JSON."""
+        """Convert the records in the buffer to JSON."""
         return [
             {
                 "timestamp": datetime.datetime.fromtimestamp(record.created).strftime(

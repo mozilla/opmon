@@ -1,3 +1,4 @@
+"""Logging."""
 import logging
 from typing import Optional
 
@@ -17,6 +18,7 @@ class LogConfiguration:
     capacity: int = 50
 
     def setup_logger(self, client=None):
+        """Set up the logger."""
         logging.basicConfig(
             level=logging.INFO,
             format="%(levelname)s:%(asctime)s:%(name)s:%(message)s",

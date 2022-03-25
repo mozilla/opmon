@@ -28,6 +28,7 @@ class DryRunFailedError(Exception):
     """Exception raised when dry run fails."""
 
     def __init__(self, error: Any, sql: str):
+        """Initialize exception."""
         self.sql = sql
         super().__init__(error)
 

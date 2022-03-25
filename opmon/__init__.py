@@ -1,3 +1,4 @@
+"""OpMon."""
 import enum
 from typing import Optional
 
@@ -5,32 +6,32 @@ import attr
 
 
 class MonitoringPeriod(enum.Enum):
+    """
+    Monitoring period.
+
+    Used as x-axis.
+    """
+
     BUILD_ID = "build_id"
     DAY = "submission_date"
 
 
 class Channel(enum.Enum):
+    """Release channel."""
+
     NIGHTLY = "nightly"
     BETA = "beta"
     RELEASE = "release"
 
     @classmethod
-    def has_value(cls, value):
+    def has_value(cls, value) -> bool:
+        """Check if a specific value is represented by the enum."""
         return value in cls._value2member_map_
 
 
 @attr.s(auto_attribs=True)
 class DataSource:
-    """Represents a table or view, from which Probes may be monitored.
-    Args:
-        name (str): Name for the Data Source. Used in sanity metric
-            column names.
-        from_expression (str): FROM expression - often just a fully-qualified
-            table name. Sometimes a subquery. May contain the string
-            ``{dataset}`` which will be replaced with an app-specific
-            dataset for Glean apps. If the expression is templated
-            on dataset, default_dataset is mandatory.
-    """
+    """Represents a table or view, from which Probes may be monitored."""
 
     name: str
     from_expression: str
