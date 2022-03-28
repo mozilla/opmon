@@ -159,6 +159,7 @@ class Monitoring:
             "dataset": self.dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
+            "dimensions": self.config.dimensions,
         }
         sql = self._render_sql(sql_filename, render_kwargs)
         return sql

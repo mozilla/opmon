@@ -40,7 +40,7 @@ class ClickDate(click.ParamType):
 project_id_option = click.option(
     "--project_id",
     "--project-id",
-    default="moz-fx-shared-prod",
+    default="moz-fx-data-shared-prod",
     help="Project to write to",
 )
 dataset_id_option = click.option(
@@ -49,7 +49,6 @@ dataset_id_option = click.option(
     default="operational_monitoring",
     help="Publicly accessible dataset to write to. "
     + "Tables will get written to corresponding _derived dataset",
-    required=True,
 )
 
 slug_option = click.option(
