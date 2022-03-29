@@ -91,7 +91,7 @@ merged_histograms AS (
     joined_histograms
   CROSS JOIN
     UNNEST(metrics)
-  {% if config.population.branches|length > 0 or config.population.boolean_pref %}
+  {% if config.population.branches|length > 0 or (config.population.boolean_pref and config.population.branches is none) %}
   WHERE branch IN (
       -- If branches are not defined, assume it's a rollout
       -- and fall back to branches labeled as enabled/disabled

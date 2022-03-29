@@ -8,7 +8,7 @@ import cattr
 import pytz
 
 from opmon import Channel, DataSource, Dimension, MonitoringPeriod, Probe
-from opmon.experimenter import Experiment
+from opmon.experimenter import Branch, Experiment
 
 _converter = cattr.Converter()
 
@@ -252,7 +252,7 @@ class PopulationSpec:
     data_source: Optional[DataSourceReference] = None
     boolean_pref: Optional[str] = None
     channel: Optional[Channel] = None
-    branches: List[str] = attr.Factory(list)
+    branches: Optional[List[str]] = None
     dimensions: List[DimensionReference] = attr.Factory(list)
 
     def resolve(
@@ -264,7 +264,8 @@ class PopulationSpec:
             boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
             channel=self.channel or (experiment.channel if experiment else None),
             branches=self.branches
-            or (
+            if self.branches is not None
+            else (
                 [branch.slug for branch in experiment.branches]
                 if experiment and self.boolean_pref is None
                 else []
@@ -278,7 +279,10 @@ class PopulationSpec:
         The `other` PopulationSpec overwrites existing keys.
         """
         for key in attr.fields_dict(type(self)):
-            setattr(self, key, getattr(other, key) or getattr(self, key))
+            if key == "branches":
+                self.branches = other.branches if other.branches is not None else other.branches
+            else:
+                setattr(self, key, getattr(other, key) or getattr(self, key))
 
 
 @attr.s(auto_attribs=True, kw_only=True)

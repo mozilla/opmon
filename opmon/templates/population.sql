@@ -18,14 +18,17 @@ WITH population AS (
           environment.experiments,
           "{{ slug }}"
         ).branch AS branch,
-        {% elif config.population.boolean_pref -%}
+        {% elif config.population.boolean_pref and config.population.branches is none -%}
         CASE
           WHEN SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'enabled'
           WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
         END
         AS branch,
         {% else -%}
-          NULL AS branch,
+          mozfun.map.get_key(
+            environment.experiments,
+            "{{ slug }}"
+          ).branch AS branch,
         {% endif %}
     FROM
         {{ config.population.data_source.from_expression }}
