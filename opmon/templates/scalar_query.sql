@@ -5,7 +5,7 @@
 {% for data_source, probes in probes_per_dataset.items() -%}
 merged_scalars_{{ data_source }} AS (
     SELECT
-        DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
+        DATE({{ probes[0].data_source.submission_date_column }}) AS submission_date,
         {{ config.population.data_source.client_id_column }} AS client_id,
         ARRAY<
             STRUCT<
@@ -31,7 +31,7 @@ merged_scalars_{{ data_source }} AS (
     FROM
         {{ probes[0].data_source.from_expression }}
     WHERE
-        DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
+        DATE({{ probes[0].data_source.submission_date_column }}) = DATE('{{ submission_date }}')
     GROUP BY
         submission_date,
         client_id
