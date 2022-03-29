@@ -8,7 +8,7 @@ import cattr
 import pytz
 
 from opmon import Channel, DataSource, Dimension, MonitoringPeriod, Probe
-from opmon.experimenter import Branch, Experiment
+from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
 
