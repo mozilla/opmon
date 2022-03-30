@@ -21,14 +21,18 @@ VALUES (
     "{{ config.name }}", 
     "{{ config.xaxis.value }}",
     [
-        {% if config.population.branches|length > 0  -%}
-        {% for branch in config.population.branches -%}
-          "{{ branch }}"
-          {{ "," if not loop.last else "" }}
-        {% endfor -%}
-        {% else -%}
-        "enabled", "disabled"
-        {% endif -%}
+        {% if config.population.monitor_entire_population %}
+            "active"
+        {% else %}
+            {% if config.population.branches|length > 0  -%}
+            {% for branch in config.population.branches -%}
+            "{{ branch }}"
+            {{ "," if not loop.last else "" }}
+            {% endfor -%}
+            {% else -%}
+            "enabled", "disabled"
+            {% endif -%}
+        {% endif %}
     ],
     [
         {% for dimension in dimensions -%}

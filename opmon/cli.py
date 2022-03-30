@@ -281,6 +281,15 @@ def validate_config(path: Iterable[os.PathLike]):
         print(f"Evaluating {config_file}...")
         entity = entity_from_path(config_file)
         experiment = experiments.with_slug(entity.slug)
+        monitor_entire_population = False
+        if entity.spec.project and entity.spec.project.population:
+            monitor_entire_population = entity.spec.project.population.monitor_entire_population
+
+        if experiment is None and monitor_entire_population is False:
+            print(f"No experiment with slug {entity.slug} in Experimenter.")
+            dirty = True
+            break
+
         platform = (
             entity.spec.project.platform
             or (experiment.app_name if experiment else None)

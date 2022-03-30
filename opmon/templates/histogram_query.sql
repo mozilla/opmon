@@ -91,6 +91,7 @@ merged_histograms AS (
     joined_histograms
   CROSS JOIN
     UNNEST(metrics)
+  {% if not config.population.monitor_entire_population %}
   WHERE branch IN (
       -- If branches are not defined, assume it's a rollout
       -- and fall back to branches labeled as enabled/disabled
@@ -103,6 +104,7 @@ merged_histograms AS (
       "enabled", "disabled"
       {% endif -%}
   )
+  {% endif %}
   GROUP BY
     submission_date,
     client_id,

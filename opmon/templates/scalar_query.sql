@@ -62,6 +62,7 @@ flattened_scalars AS (
     SELECT * EXCEPT(metrics)
     FROM joined_scalars
     CROSS JOIN UNNEST(metrics)
+    {% if not config.population.monitor_entire_population %}
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
         -- and fall back to branches labeled as enabled/disabled
@@ -74,6 +75,7 @@ flattened_scalars AS (
         "enabled", "disabled"
         {% endif -%}
     )
+    {% endif %}
 )
 {% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT

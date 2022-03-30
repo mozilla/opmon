@@ -243,6 +243,7 @@ class PopulationConfiguration:
     boolean_pref: Optional[str] = None
     channel: Optional[Channel] = attr.ib(default=Channel.NIGHTLY)
     branches: List[str] = attr.Factory(list)
+    monitor_entire_population: bool = False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -254,6 +255,7 @@ class PopulationSpec:
     channel: Optional[Channel] = None
     branches: Optional[List[str]] = None
     dimensions: List[DimensionReference] = attr.Factory(list)
+    monitor_entire_population: bool = False
 
     def resolve(
         self, spec: "MonitoringSpec", experiment: Optional[Experiment]
@@ -270,6 +272,7 @@ class PopulationSpec:
                 if experiment and self.boolean_pref is None
                 else []
             ),
+            monitor_entire_population=self.monitor_entire_population,
         )
 
     def merge(self, other: "PopulationSpec") -> None:
