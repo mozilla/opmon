@@ -280,7 +280,7 @@ class PopulationSpec:
         """
         for key in attr.fields_dict(type(self)):
             if key == "branches":
-                self.branches = other.branches if other.branches is not None else other.branches
+                self.branches = self.branches if self.branches is not None else other.branches
             else:
                 setattr(self, key, getattr(other, key) or getattr(self, key))
 

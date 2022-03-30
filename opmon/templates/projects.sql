@@ -26,7 +26,7 @@ VALUES (
           "{{ branch }}"
           {{ "," if not loop.last else "" }}
         {% endfor -%}
-        {% elif config.population.boolean_pref -%}
+        {% else -%}
         "enabled", "disabled"
         {% endif -%}
     ],
