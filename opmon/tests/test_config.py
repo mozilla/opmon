@@ -219,7 +219,7 @@ class TestConfig:
         assert cfg.project.end_date == datetime(2022, 3, 1, tzinfo=pytz.utc)
         assert cfg.project.population.data_source.name == "foo"
         assert cfg.project.population.boolean_pref == "FALSE"
-        assert cfg.project.population.branches == ["test-1"]
+        assert cfg.project.population.branches == ["treatment"]
         assert len(cfg.dimensions) == 1
 
     def test_bad_project_dates(self):
