@@ -183,6 +183,7 @@ class TestConfig:
             boolean_pref = "TRUE"
             branches = ["treatment"]
             dimensions = ["os"]
+            group_by_dimension = "os"
 
             [data_sources]
             [data_sources.foo]
@@ -221,6 +222,34 @@ class TestConfig:
         assert cfg.project.population.boolean_pref == "FALSE"
         assert cfg.project.population.branches == ["treatment"]
         assert len(cfg.dimensions) == 1
+
+    def test_group_by_fail(self):
+        config_str = dedent(
+            """
+            [project]
+            name = "foo"
+            xaxis = "build_id"
+            probes = []
+
+            [project.population]
+            data_source = "foo"
+            group_by_dimension = "os"
+
+            [data_sources]
+            [data_sources.foo]
+            from_expression = "test"
+
+            [dimensions]
+            [dimensions.os]
+            select_expression = "os"
+            data_source = "foo"
+            """
+        )
+
+        spec = MonitoringSpec.from_dict(toml.loads(config_str))
+
+        with pytest.raises(ValueError):
+            spec.resolve()
 
     def test_bad_project_dates(self):
         config_str = dedent(
