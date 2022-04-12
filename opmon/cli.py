@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
+DEFAULTS_DIR = "defaults"
 
 
 class ClickDate(click.ParamType):
@@ -285,25 +286,26 @@ def validate_config(path: Iterable[os.PathLike]):
         if entity.spec.project and entity.spec.project.population:
             monitor_entire_population = entity.spec.project.population.monitor_entire_population
 
-        if experiment is None and monitor_entire_population is False:
-            print(f"No experiment with slug {entity.slug} in Experimenter.")
-            dirty = True
-            break
+        if config_file.parent != DEFAULTS_DIR:
+            if experiment is None and monitor_entire_population is False:
+                print(f"No experiment with slug {entity.slug} in Experimenter.")
+                dirty = True
+                break
 
-        platform = (
-            entity.spec.project.platform
-            or (experiment.app_name if experiment else None)
-            or DEFAULT_PLATFORM
-        )
+            platform = (
+                entity.spec.project.platform
+                or (experiment.app_name if experiment else None)
+                or DEFAULT_PLATFORM
+            )
 
-        if platform not in platform_definitions:
-            print(f"Invalid platform {platform}")
-            dirty = True
-            continue
+            if platform not in platform_definitions:
+                print(f"Invalid platform {platform}")
+                dirty = True
+                continue
 
-        platform_definition = external_configs.definitions[platform]
-        spec = entity.spec
-        spec.merge(platform_definition.spec)
+            platform_definition = external_configs.definitions[platform]
+            spec = entity.spec
+            spec.merge(platform_definition.spec)
 
         try:
             entity.validate(experiment)
