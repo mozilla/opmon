@@ -244,6 +244,7 @@ class PopulationConfiguration:
     channel: Optional[Channel] = attr.ib(default=Channel.NIGHTLY)
     branches: List[str] = attr.Factory(list)
     monitor_entire_population: bool = False
+    group_by_dimension: Optional[Dimension] = None
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -256,11 +257,18 @@ class PopulationSpec:
     branches: Optional[List[str]] = None
     dimensions: List[DimensionReference] = attr.Factory(list)
     monitor_entire_population: bool = False
+    group_by_dimension: Optional[DimensionReference] = None
 
     def resolve(
         self, spec: "MonitoringSpec", experiment: Optional[Experiment]
     ) -> PopulationConfiguration:
         """Create a `PopulationConfiguration` from the spec."""
+        if self.group_by_dimension:
+            if self.group_by_dimension not in self.dimensions:
+                raise ValueError(
+                    f"{self.group_by_dimension} not listed as dimension, but used for grouping"
+                )
+
         return PopulationConfiguration(
             data_source=self.data_source.resolve(spec) if self.data_source else None,
             boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
@@ -273,6 +281,9 @@ class PopulationSpec:
                 else []
             ),
             monitor_entire_population=self.monitor_entire_population,
+            group_by_dimension=self.group_by_dimension.resolve(spec)
+            if self.group_by_dimension
+            else None,
         )
 
     def merge(self, other: "PopulationSpec") -> None:

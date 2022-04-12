@@ -8,6 +8,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     probes ARRAY<STRUCT<agg_type STRING, name STRING>>,
     start_date DATE,
     end_date DATE,
+    group_by_dimension STRING,
 );
 {% endif -%}
 
@@ -49,6 +50,11 @@ VALUES (
     DATE("{{ config.start_date }}"),
     {% if config.end_date -%}
     DATE("{{ config.end_date }}")
+    {% else -%}
+    NULL,
+    {% endif -%}
+    {% if config.population.group_by_dimension -%}
+    "{{ config.population.group_by_dimension }}"
     {% else -%}
     NULL
     {% endif -%}
