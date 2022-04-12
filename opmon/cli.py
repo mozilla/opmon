@@ -286,7 +286,7 @@ def validate_config(path: Iterable[os.PathLike]):
         if entity.spec.project and entity.spec.project.population:
             monitor_entire_population = entity.spec.project.population.monitor_entire_population
 
-        if config_file.parent != DEFINITIONS_DIR:
+        if config_file.parent.name != DEFINITIONS_DIR:
             if experiment is None and monitor_entire_population is False:
                 print(f"No experiment with slug {entity.slug} in Experimenter.")
                 dirty = True
@@ -307,13 +307,13 @@ def validate_config(path: Iterable[os.PathLike]):
             spec = entity.spec
             spec.merge(platform_definition.spec)
 
-        try:
-            entity.validate(experiment)
-        except DryRunFailedError as e:
-            print("Error evaluating SQL:")
-            for i, line in enumerate(e.sql.split("\n")):
-                print(f"{i+1: 4d} {line.rstrip()}")
-            print("")
-            print(str(e))
-            dirty = True
+            try:
+                entity.validate(experiment)
+            except DryRunFailedError as e:
+                print("Error evaluating SQL:")
+                for i, line in enumerate(e.sql.split("\n")):
+                    print(f"{i+1: 4d} {line.rstrip()}")
+                print("")
+                print(str(e))
+                dirty = True
     sys.exit(1 if dirty else 0)
