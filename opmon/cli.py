@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
-DEFAULTS_DIR = "defaults"
+DEFINITIONS_DIR = "definitions"
 
 
 class ClickDate(click.ParamType):
@@ -286,7 +286,7 @@ def validate_config(path: Iterable[os.PathLike]):
         if entity.spec.project and entity.spec.project.population:
             monitor_entire_population = entity.spec.project.population.monitor_entire_population
 
-        if config_file.parent != DEFAULTS_DIR:
+        if config_file.parent != DEFINITIONS_DIR:
             if experiment is None and monitor_entire_population is False:
                 print(f"No experiment with slug {entity.slug} in Experimenter.")
                 dirty = True
