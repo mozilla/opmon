@@ -272,6 +272,21 @@ def validate_config(path: Iterable[os.PathLike]):
     platform_definitions = external_configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
+    # get updated definition files
+    updated_definitions = {}
+    for config_file in path:
+        config_file = Path(config_file)
+        if not config_file.is_file():
+            continue
+        if ".example" in config_file.suffixes:
+            print(f"Skipping example config {config_file}")
+            continue
+
+        if config_file.parent.name == DEFINITIONS_DIR:
+            updated_definitions[config_file.stem] = entity_from_path(config_file)
+
+    platform_definitions.update(updated_definitions)
+
     for config_file in path:
         config_file = Path(config_file)
         if not config_file.is_file():
@@ -303,7 +318,7 @@ def validate_config(path: Iterable[os.PathLike]):
                 dirty = True
                 continue
 
-            platform_definition = external_configs.definitions[platform]
+            platform_definition = platform_definitions[platform]
             spec = entity.spec
             spec.merge(platform_definition.spec)
 
