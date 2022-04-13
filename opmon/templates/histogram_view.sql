@@ -39,6 +39,7 @@ normalized AS (
         {% endfor -%}
         branch,
         probe,
+        {% if probes_per_dataset|length > 0 %}
         STRUCT<
             bucket_count INT64,
             sum INT64,
@@ -56,6 +57,9 @@ normalized AS (
                 1.0
             )
         ) AS value
+        {% else %}
+        NULL AS value
+        {% endif %}
         FROM filtered_histograms
         GROUP BY
         client_id,
@@ -84,6 +88,7 @@ SELECT
     {% endfor -%}
     branch,
     probe,
+    {% if probes_per_dataset|length > 0 %}
     STRUCT<
         bucket_count INT64,
         sum INT64,
@@ -97,4 +102,7 @@ SELECT
         value.range,
         ARRAY(SELECT AS STRUCT CAST(keyval.key AS FLOAT64), keyval.value FROM UNNEST(value.values) keyval)
     ) AS histogram
+    {% else %}
+    NULL AS histogram
+    {% endif %}
 FROM normalized
