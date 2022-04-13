@@ -16,7 +16,7 @@ DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}`
 WHERE slug = "{{ slug }}";
 
 INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
-(slug, name, xaxis, branches, dimensions, probes, start_date, end_date)
+(slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension)
 VALUES (
     "{{ slug }}", 
     "{{ config.name }}", 
@@ -49,7 +49,7 @@ VALUES (
     ],
     DATE("{{ config.start_date }}"),
     {% if config.end_date -%}
-    DATE("{{ config.end_date }}")
+    DATE("{{ config.end_date }}"),
     {% else -%}
     NULL,
     {% endif -%}
