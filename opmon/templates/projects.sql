@@ -54,7 +54,7 @@ VALUES (
     NULL,
     {% endif -%}
     {% if config.population.group_by_dimension -%}
-    "{{ config.population.group_by_dimension }}"
+    "{{ config.population.group_by_dimension.name }}"
     {% else -%}
     NULL
     {% endif -%}
