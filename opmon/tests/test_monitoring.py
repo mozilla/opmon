@@ -103,11 +103,8 @@ class TestMonitoring:
             project="test", dataset="test", slug="test-foo", config=spec.resolve()
         )
 
-        assert (
-            monitoring._get_data_type_sql(
-                submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
-            )
-            == ""
+        assert "population" in monitoring._get_data_type_sql(
+            submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
         )
 
     def test_get_data_type_sql(self):

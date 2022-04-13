@@ -45,11 +45,15 @@ joined_histograms AS (
       population.{{ dimension.name }} AS {{ dimension.name }},
     {% endfor %}
     population.branch AS branch,
+    {% if probes_per_dataset|length > 0 %}
     ARRAY_CONCAT(
       {% for data_source, probes in probes_per_dataset.items() %}
         merged_probes_{{ data_source }}.metrics
       {% endfor %}
     ) AS metrics
+    {% else %}
+    [] AS metrics,
+    {% endif %}
   FROM population
   {% for data_source, probes in probes_per_dataset.items() %}
   LEFT JOIN merged_probes_{{ data_source }}
@@ -65,6 +69,7 @@ merged_histograms AS (
     {% for dimension in dimensions %}
       {{ dimension.name }},
     {% endfor %}
+    {% if probes_per_dataset|length > 0 %}
     ARRAY_AGG(
       STRUCT<
         name STRING,
@@ -87,6 +92,9 @@ merged_histograms AS (
         END
       )
     ) AS metrics
+    {% else %}
+    [] AS metrics
+    {% endif %}
   FROM
     joined_histograms
   CROSS JOIN
@@ -124,7 +132,12 @@ normalized_histograms AS (
         {{ dimension.name }},
       {% endfor -%}
       branch,
+      {% if probes_per_dataset|length > 0 %}
       name AS probe,
+      {% else %}
+      NULL AS probe,
+      {% endif %}
+      {% if probes_per_dataset|length > 0 %}
       STRUCT<
           bucket_count INT64,
           sum INT64,
@@ -138,6 +151,9 @@ normalized_histograms AS (
           histogram.range,
           ARRAY(SELECT AS STRUCT CAST(keyval.key AS STRING), keyval.value FROM UNNEST(histogram.values) keyval)
       ) AS value
+      {% else %}
+      NULL AS value
+      {% endif %}
   FROM merged_histograms
   CROSS JOIN UNNEST(metrics)
 )

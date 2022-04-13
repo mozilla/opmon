@@ -99,7 +99,6 @@ class Monitoring:
                 f"No probes for data type {data_type} configured for {self.slug}.",
                 extra={"experiment": self.slug},
             )
-            return ""
 
         # todo:
         # xaxis metadata to be used to decide whether the entire table is replaced
