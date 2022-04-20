@@ -146,6 +146,25 @@ def run(project_id, dataset_id, date, slug, parallelism):
         spec.merge(external_config.spec)
         configs.append((external_config.slug, spec.resolve(experiment)))
 
+    # prepare rollouts that do not have an external config
+    rollouts = experiments.rollouts().experiments
+    for rollout in rollouts:
+        if not any([c[0] == rollout.experimenter_slug for c in configs]):
+            platform = rollout.app_name or DEFAULT_PLATFORM
+
+            if platform not in external_configs.definitions:
+                logger.exception(
+                    str(f"Invalid platform {platform}"),
+                    exc_info=None,
+                    extra={"experiment": rollout.normandy_slug},
+                )
+                continue
+
+            # resolve config by applying platform and custom config specs
+            platform_definitions = external_configs.definitions[platform]
+            spec = copy.deepcopy(platform_definitions.spec)
+            configs.append((rollout.experimenter_slug, spec.resolve(rollout)))
+
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
     configs = [
@@ -231,6 +250,27 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
         spec.merge(external_config.spec)
         config = (external_config.slug, spec.resolve(experiment))
         break
+
+    # check if backfill is for a rollout
+    if config is None:
+        rollouts = experiments.rollouts().experiments
+        for rollout in rollouts:
+            if rollout.experimenter_slug == slug:
+                platform = rollout.app_name or DEFAULT_PLATFORM
+
+                if platform not in external_configs.definitions:
+                    logger.exception(
+                        str(f"Invalid platform {platform}"),
+                        exc_info=None,
+                        extra={"experiment": rollout.normandy_slug},
+                    )
+                    continue
+
+                # resolve config by applying platform and custom config specs
+                platform_definitions = external_configs.definitions[platform]
+                spec = copy.deepcopy(platform_definitions.spec)
+                config = (rollout.experimenter_slug, spec.resolve(rollout))
+                break
 
     # determine backfill time frame based on start and end dates
     start_date = (
