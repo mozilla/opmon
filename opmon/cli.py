@@ -149,8 +149,8 @@ def run(project_id, dataset_id, date, slug, parallelism):
         spec = copy.deepcopy(platform_definitions.spec)
         spec.merge(external_configs.default_spec_for_platform(platform))
 
-        if experiment.is_rollout:
-            spec.merge(external_config.default_for_type("rollout"))
+        if experiment and experiment.is_rollout:
+            spec.merge(external_configs.default_spec_for_type("rollout"))
 
         configs.append((external_config.slug, spec.resolve(experiment)))
 
@@ -180,7 +180,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
     configs = [
         (k, cfg)
         for (k, cfg) in configs
-        if cfg.project.start_date <= prior_date
+        if (cfg.project.start_date and cfg.project.start_date <= prior_date)
         and (cfg.project.end_date is None or cfg.project.end_date >= prior_date)
     ]
 
