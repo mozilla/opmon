@@ -157,7 +157,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
     # prepare rollouts that do not have an external config
     rollouts = experiments.rollouts().experiments
     for rollout in rollouts:
-        if not any([c[0] == rollout.experimenter_slug for c in configs]):
+        if not any([c[0] == rollout.normandy_slug for c in configs]):
             platform = rollout.app_name or DEFAULT_PLATFORM
 
             if platform not in external_configs.definitions:
@@ -173,7 +173,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
             spec = copy.deepcopy(platform_definitions.spec)
             spec.merge(external_configs.default_spec_for_platform(platform))
             spec.merge(external_configs.default_spec_for_type("rollout"))
-            configs.append((rollout.experimenter_slug, spec.resolve(rollout)))
+            configs.append((rollout.normandy_slug, spec.resolve(rollout)))
 
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
@@ -266,7 +266,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
     if config is None:
         rollouts = experiments.rollouts().experiments
         for rollout in rollouts:
-            if rollout.experimenter_slug == slug:
+            if rollout.normandy_slug == slug:
                 platform = rollout.app_name or DEFAULT_PLATFORM
 
                 if platform not in external_configs.definitions:
@@ -282,7 +282,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
                 spec = copy.deepcopy(platform_definitions.spec)
                 spec.merge(external_configs.default_spec_for_platform(platform))
                 spec.merge(external_configs.default_spec_for_type("rollout"))
-                config = (rollout.experimenter_slug, spec.resolve(rollout))
+                config = (rollout.normandy_slug, spec.resolve(rollout))
                 break
 
     # determine backfill time frame based on start and end dates
