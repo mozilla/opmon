@@ -45,7 +45,7 @@ joined_histograms AS (
       population.{{ dimension.name }} AS {{ dimension.name }},
     {% endfor %}
     population.branch AS branch,
-    {% if probes_per_dataset|length > 0 %}
+    {% if probes_per_dataset != {} %}
     ARRAY_CONCAT(
       {% for data_source, probes in probes_per_dataset.items() %}
         merged_probes_{{ data_source }}.metrics
@@ -69,7 +69,7 @@ merged_histograms AS (
     {% for dimension in dimensions %}
       {{ dimension.name }},
     {% endfor %}
-    {% if probes_per_dataset|length > 0 %}
+    {% if probes_per_dataset != {} %}
     ARRAY_AGG(
       STRUCT<
         name STRING,
@@ -132,12 +132,12 @@ normalized_histograms AS (
         {{ dimension.name }},
       {% endfor -%}
       branch,
-      {% if probes_per_dataset|length > 0 %}
+      {% if probes_per_dataset != {} %}
       name AS probe,
       {% else %}
       NULL AS probe,
       {% endif %}
-      {% if probes_per_dataset|length > 0 %}
+      {% if probes_per_dataset != {} %}
       STRUCT<
           bucket_count INT64,
           sum INT64,
