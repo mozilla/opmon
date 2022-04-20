@@ -39,7 +39,7 @@ normalized AS (
         {% endfor -%}
         branch,
         probe,
-        {% if probes_per_dataset|length > 0 %}
+        {% if probes_per_dataset != {} %}
         STRUCT<
             bucket_count INT64,
             sum INT64,
@@ -88,7 +88,7 @@ SELECT
     {% endfor -%}
     branch,
     probe,
-    {% if probes_per_dataset|length > 0 %}
+    {% if probes_per_dataset != {} %}
     STRUCT<
         bucket_count INT64,
         sum INT64,
