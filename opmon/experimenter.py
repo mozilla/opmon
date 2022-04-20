@@ -50,6 +50,7 @@ class Experiment:
     app_id: str
     boolean_pref: Optional[str]
     channel: Optional[Channel]
+    is_rollout: bool
 
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True, frozen=True)
@@ -108,6 +109,7 @@ class ExperimentV1:
             channel=Channel(self.firefox_channel.lower())
             if self.firefox_channel and Channel.has_value(self.firefox_channel)
             else None,
+            is_rollout=(self.type == "rollout"),
         )
 
 
@@ -124,6 +126,7 @@ class ExperimentV6:
     _appName: Optional[str] = None
     _appId: Optional[str] = None
     channel: Optional[str] = None
+    isRollout: Optional[bool] = None
 
     @property
     def appName(self) -> str:
@@ -180,6 +183,7 @@ class ExperimentV6:
             channel=Channel(self.channel)
             if self.channel and Channel.has_value(self.channel)
             else None,
+            is_rollout=self.isRollout if self.isRollout else False,
         )
 
 
@@ -245,3 +249,8 @@ class ExperimentCollection:
                 return ex
 
         return None
+
+    def rollouts(self) -> "ExperimentCollection":
+        """Return all rollouts"""
+        cls = type(self)
+        return cls([ex for ex in self.experiments if ex.is_rollout])
