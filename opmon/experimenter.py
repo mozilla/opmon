@@ -251,6 +251,6 @@ class ExperimentCollection:
         return None
 
     def rollouts(self) -> "ExperimentCollection":
-        """Return all rollouts"""
+        """Return all rollouts."""
         cls = type(self)
         return cls([ex for ex in self.experiments if ex.is_rollout])

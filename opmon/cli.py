@@ -15,7 +15,11 @@ import pytz
 from opmon.config import MonitoringConfiguration
 from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
-from opmon.external_config import ExternalConfigCollection, entity_from_path
+from opmon.external_config import (
+    DEFAULTS_DIR,
+    ExternalConfigCollection,
+    entity_from_path,
+)
 from opmon.logging import LogConfiguration
 from opmon.monitoring import Monitoring
 
@@ -143,7 +147,11 @@ def run(project_id, dataset_id, date, slug, parallelism):
         # resolve config by applying platform and custom config specs
         platform_definitions = external_configs.definitions[platform]
         spec = copy.deepcopy(platform_definitions.spec)
-        spec.merge(external_config.spec)
+        spec.merge(external_configs.default_spec_for_platform(platform))
+
+        if experiment.is_rollout:
+            spec.merge(external_config.default_for_type("rollout"))
+
         configs.append((external_config.slug, spec.resolve(experiment)))
 
     # prepare rollouts that do not have an external config
@@ -163,6 +171,8 @@ def run(project_id, dataset_id, date, slug, parallelism):
             # resolve config by applying platform and custom config specs
             platform_definitions = external_configs.definitions[platform]
             spec = copy.deepcopy(platform_definitions.spec)
+            spec.merge(external_configs.default_spec_for_platform(platform))
+            spec.merge(external_configs.default_spec_for_type("rollout"))
             configs.append((rollout.experimenter_slug, spec.resolve(rollout)))
 
     # filter out projects that have finished or not started
@@ -247,6 +257,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
 
         platform_definitions = external_configs.definitions[platform]
         spec = platform_definitions.spec
+        spec.merge(external_configs.default_spec_for_platform(platform))
         spec.merge(external_config.spec)
         config = (external_config.slug, spec.resolve(experiment))
         break
@@ -269,6 +280,8 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
                 # resolve config by applying platform and custom config specs
                 platform_definitions = external_configs.definitions[platform]
                 spec = copy.deepcopy(platform_definitions.spec)
+                spec.merge(external_configs.default_spec_for_platform(platform))
+                spec.merge(external_configs.default_spec_for_type("rollout"))
                 config = (rollout.experimenter_slug, spec.resolve(rollout))
                 break
 
@@ -342,12 +355,16 @@ def validate_config(path: Iterable[os.PathLike]):
         if entity.spec.project and entity.spec.project.population:
             monitor_entire_population = entity.spec.project.population.monitor_entire_population
 
-        if config_file.parent.name != DEFINITIONS_DIR:
+        if config_file.parent.name != DEFINITIONS_DIR and config_file.parent.name != DEFAULTS_DIR:
             if experiment is None and monitor_entire_population is False:
                 print(f"No experiment with slug {entity.slug} in Experimenter.")
                 dirty = True
                 break
+        else:
+            # set dummy date for validating defaults
+            entity.spec.project.start_date = "2022-01-01"
 
+        if config_file.parent.name != DEFINITIONS_DIR:
             platform = (
                 entity.spec.project.platform
                 or (experiment.app_name if experiment else None)

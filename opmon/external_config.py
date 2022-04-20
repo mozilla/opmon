@@ -17,6 +17,7 @@ from opmon.monitoring import Monitoring
 from opmon.utils import TemporaryDirectory
 
 DEFINITIONS_DIR = "definitions"
+DEFAULTS_DIR = "defaults"
 
 
 @attr.s(auto_attribs=True)
@@ -51,6 +52,7 @@ class ExternalConfigCollection:
 
     configs: List[ExternalConfig] = attr.Factory(list)
     definitions: Dict[str, ExternalConfig] = attr.Factory(dict)
+    defaults: Dict[str, ExternalConfig] = attr.Factory(dict)
 
     CONFIG_URL = "https://github.com/mozilla/opmon-config"
 
@@ -79,7 +81,15 @@ class ExternalConfigCollection:
                     spec=MonitoringSpec.from_dict(toml.load(definition_file)),
                 )
 
-        return cls(external_configs, definitions)
+            defaults = {}
+
+            for defaults_file in tmp_dir.glob(f"**/{DEFAULTS_DIR}/*.toml"):
+                defaults[defaults_file.stem] = ExternalConfig(
+                    slug=defaults_file.stem,
+                    spec=MonitoringSpec.from_dict(toml.load(defaults_file)),
+                )
+
+        return cls(external_configs, definitions, defaults)
 
     def spec_for_experiment(self, slug: str) -> Optional[MonitoringSpec]:
         """Return the spec for a specific experiment."""
@@ -88,3 +98,13 @@ class ExternalConfigCollection:
                 return config.spec
 
         return None
+
+    def default_spec_for_platform(self, platform: str) -> Optional[MonitoringSpec]:
+        """Return the default config for the provided platform."""
+        default = self.defaults.get(platform, None)
+        return default.spec if default else None
+
+    def default_spec_for_type(self, type: str) -> Optional[MonitoringSpec]:
+        """Return the default config for the provided type."""
+        default = self.defaults.get(type, None)
+        return default.spec if default else None
