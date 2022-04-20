@@ -107,7 +107,7 @@ class ExperimentV1:
             app_id="firefox-desktop",
             boolean_pref=self.pref_name,
             channel=Channel(self.firefox_channel.lower())
-            if self.firefox_channel and Channel.has_value(self.firefox_channel)
+            if self.firefox_channel and Channel.has_value(self.firefox_channel.lower())
             else None,
             is_rollout=(self.type == "rollout"),
         )
