@@ -432,9 +432,10 @@ class MonitoringSpec:
             dimensions=dimensions,
         )
 
-    def merge(self, other: "MonitoringSpec"):
+    def merge(self, other: Optional["MonitoringSpec"]):
         """Merge another monitoring spec into the current one."""
-        self.project.merge(other.project)
-        self.data_sources.merge(other.data_sources)
-        self.probes.merge(other.probes)
-        self.dimensions.merge(other.dimensions)
+        if other:
+            self.project.merge(other.project)
+            self.data_sources.merge(other.data_sources)
+            self.probes.merge(other.probes)
+            self.dimensions.merge(other.dimensions)
