@@ -271,13 +271,14 @@ class PopulationSpec:
 
         return PopulationConfiguration(
             data_source=self.data_source.resolve(spec) if self.data_source else None,
-            boolean_pref=self.boolean_pref or (experiment.boolean_pref if experiment else None),
+            boolean_pref=self.boolean_pref
+            or (experiment.boolean_pref if experiment and not experiment.is_rollout else None),
             channel=self.channel or (experiment.channel if experiment else None),
             branches=self.branches
             if self.branches is not None
             else (
                 [branch.slug for branch in experiment.branches]
-                if experiment and self.boolean_pref is None
+                if experiment and self.boolean_pref is None and not experiment.is_rollout
                 else []
             ),
             monitor_entire_population=self.monitor_entire_population,
