@@ -296,6 +296,8 @@ class PopulationSpec:
         for key in attr.fields_dict(type(self)):
             if key == "branches":
                 self.branches = self.branches if self.branches is not None else other.branches
+            elif key == "dimensions":
+                self.dimensions += other.dimensions
             else:
                 setattr(self, key, getattr(other, key) or getattr(self, key))
 
@@ -364,6 +366,8 @@ class ProjectSpec:
         for key in attr.fields_dict(type(self)):
             if key == "population":
                 self.population.merge(other.population)
+            elif key == "probes":
+                self.probes += other.probes
             else:
                 setattr(self, key, getattr(other, key) or getattr(self, key))
 

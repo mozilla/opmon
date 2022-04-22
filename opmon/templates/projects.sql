@@ -12,21 +12,30 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
 );
 {% endif -%}
 
+BEGIN TRANSACTION;
+
 DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}`
-WHERE slug = "{{ slug }}";
+WHERE 
+{% for project in projects %}
+slug = "{{ project.slug }}"
+{{ " OR " if not loop.last else "" }}
+{% endfor %}
+;
 
 INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
 (slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension)
-VALUES (
-    "{{ slug }}", 
-    "{{ config.name }}", 
-    "{{ config.xaxis.value }}",
+VALUES 
+{% for project in projects %}
+(
+    "{{ project.slug }}", 
+    "{{ project.config.name }}", 
+    "{{ project.config.xaxis.value }}",
     [
-        {% if config.population.monitor_entire_population %}
+        {% if project.config.population.monitor_entire_population %}
             "active"
         {% else %}
-            {% if config.population.branches|length > 0  -%}
-            {% for branch in config.population.branches -%}
+            {% if project.config.population.branches|length > 0  -%}
+            {% for branch in project.config.population.branches -%}
             "{{ branch }}"
             {{ "," if not loop.last else "" }}
             {% endfor -%}
@@ -36,26 +45,31 @@ VALUES (
         {% endif %}
     ],
     [
-        {% for dimension in dimensions -%}
+        {% for dimension in project.dimensions -%}
           "{{ dimension.name }}"
           {{ "," if not loop.last else "" }}
         {% endfor -%}
     ],
     [
-        {% for probe in probes -%}
+        {% for probe in project.probes -%}
         STRUCT("{{ probe.agg_type }}" AS agg_type, "{{ probe.name }}" AS name)
         {{ "," if not loop.last else "" }}
         {% endfor %}
     ],
-    DATE("{{ config.start_date }}"),
-    {% if config.end_date -%}
-    DATE("{{ config.end_date }}"),
+    DATE("{{ project.config.start_date }}"),
+    {% if project.config.end_date -%}
+    DATE("{{ project.config.end_date }}"),
     {% else -%}
     NULL,
     {% endif -%}
-    {% if config.population.group_by_dimension -%}
-    "{{ config.population.group_by_dimension.name }}"
+    {% if project.config.population.group_by_dimension -%}
+    "{{ project.config.population.group_by_dimension.name }}"
     {% else -%}
     NULL
     {% endif -%}
-);
+)
+{{ "," if not loop.last else "" }}
+{% endfor %}
+;
+
+COMMIT TRANSACTION;
