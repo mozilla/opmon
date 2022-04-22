@@ -20,8 +20,6 @@ PATH = Path(os.path.dirname(__file__))
 
 QUERY_FILENAME = "{}_query.sql"
 VIEW_FILENAME = "{}_view.sql"
-PROJECTS_FILENAME = "projects.sql"
-PROJECTS_TABLE = "projects_v1"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 
@@ -58,7 +56,6 @@ class Monitoring:
             # Periodically print so airflow gke operator doesn't think task is dead
             print(f"Run query for {self.slug} for {data_type} types")
             self._run_sql_for_data_type(submission_date, data_type)
-        self._update_metadata()
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
@@ -191,45 +188,3 @@ class Monitoring:
                 first_run=True,
             )
             dry_run_query(data_type_sql)
-
-    def _update_metadata(self) -> None:
-        """Update the BQ table with project metadata to add/update information for this project."""
-        destination_table = f"{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}"
-
-        # check if projects metadata table exists; otherwise it needs to be created
-        first_run = True
-        try:
-            self.bigquery.client.get_table(destination_table)
-            first_run = False
-        except Exception:
-            first_run = True
-
-        probes = self.config.probes
-        render_probes = [
-            {"name": probe.name, "agg_type": probe.type} for probe in probes if probe.type
-        ]
-
-        render_kwargs = {
-            "gcp_project": self.project,
-            "dataset": self.dataset,
-            "table": PROJECTS_TABLE,
-            "config": self.config.project,
-            "slug": self.slug,
-            "dimensions": self.config.dimensions,
-            "probes": render_probes,
-            "first_run": first_run,
-        }
-        query = self._render_sql(PROJECTS_FILENAME, render_kwargs=render_kwargs)
-        self.bigquery.execute(query)
-
-        # Create view
-        view_name = PROJECTS_TABLE.split("_")[0]
-        view_query = f"""
-            CREATE OR REPLACE VIEW `{self.project}.{self.dataset}.{view_name}` AS (
-                SELECT *
-                FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}`
-            )
-        """
-
-        self.bigquery.execute(view_query)
-        print(f"Updated project metadata for {self.slug}")

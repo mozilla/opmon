@@ -21,6 +21,7 @@ from opmon.external_config import (
     entity_from_path,
 )
 from opmon.logging import LogConfiguration
+from opmon.metadata import Metadata
 from opmon.monitoring import Monitoring
 
 logger = logging.getLogger(__name__)
@@ -147,6 +148,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
         # resolve config by applying platform and custom config specs
         platform_definitions = external_configs.definitions[platform]
         spec = copy.deepcopy(platform_definitions.spec)
+        spec.merge(external_config.spec)
         spec.merge(external_configs.default_spec_for_platform(platform))
 
         if experiment and experiment.is_rollout:
@@ -155,25 +157,26 @@ def run(project_id, dataset_id, date, slug, parallelism):
         configs.append((external_config.slug, spec.resolve(experiment)))
 
     # prepare rollouts that do not have an external config
-    rollouts = experiments.rollouts().experiments
-    for rollout in rollouts:
-        if not any([c[0] == rollout.normandy_slug for c in configs]):
-            platform = rollout.app_name or DEFAULT_PLATFORM
+    if slug is None:
+        rollouts = experiments.rollouts().experiments
+        for rollout in rollouts:
+            if not any([c[0] == rollout.normandy_slug for c in configs]):
+                platform = rollout.app_name or DEFAULT_PLATFORM
 
-            if platform not in external_configs.definitions:
-                logger.exception(
-                    str(f"Invalid platform {platform}"),
-                    exc_info=None,
-                    extra={"experiment": rollout.normandy_slug},
-                )
-                continue
+                if platform not in external_configs.definitions:
+                    logger.exception(
+                        str(f"Invalid platform {platform}"),
+                        exc_info=None,
+                        extra={"experiment": rollout.normandy_slug},
+                    )
+                    continue
 
-            # resolve config by applying platform and custom config specs
-            platform_definitions = external_configs.definitions[platform]
-            spec = copy.deepcopy(platform_definitions.spec)
-            spec.merge(external_configs.default_spec_for_platform(platform))
-            spec.merge(external_configs.default_spec_for_type("rollout"))
-            configs.append((rollout.normandy_slug, spec.resolve(rollout)))
+                # resolve config by applying platform and custom config specs
+                platform_definitions = external_configs.definitions[platform]
+                spec = copy.deepcopy(platform_definitions.spec)
+                spec.merge(external_configs.default_spec_for_platform(platform))
+                spec.merge(external_configs.default_spec_for_type("rollout"))
+                configs.append((rollout.normandy_slug, spec.resolve(rollout)))
 
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
@@ -190,6 +193,8 @@ def run(project_id, dataset_id, date, slug, parallelism):
     with ThreadPool(parallelism) as pool:
         results = pool.map(run, configs)
         success = all(results)
+
+    Metadata(project_id, dataset_id, configs).write()
 
     sys.exit(0 if success else 1)
 
@@ -257,8 +262,8 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
 
         platform_definitions = external_configs.definitions[platform]
         spec = platform_definitions.spec
-        spec.merge(external_configs.default_spec_for_platform(platform))
         spec.merge(external_config.spec)
+        spec.merge(external_configs.default_spec_for_platform(platform))
         config = (external_config.slug, spec.resolve(experiment))
         break
 
@@ -313,6 +318,8 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
         except Exception as e:
             print(f"Error backfilling {config[0]}: {e}")
             success = False
+
+    Metadata(project_id, dataset_id, [config[0]]).write()
 
     sys.exit(0 if success else 1)
 
