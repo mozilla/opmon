@@ -183,7 +183,7 @@ class ExperimentV6:
             channel=Channel(self.channel)
             if self.channel and Channel.has_value(self.channel)
             else None,
-            is_rollout=self.isRollout if self.isRollout else False,
+            is_rollout=self.isRollout if self.isRollout else (len(self.branches) == 1),
         )
 
 
