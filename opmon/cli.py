@@ -319,7 +319,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
             print(f"Error backfilling {config[0]}: {e}")
             success = False
 
-    Metadata(project_id, dataset_id, [config[0]]).write()
+    Metadata(project_id, dataset_id, [config]).write()
 
     sys.exit(0 if success else 1)
 
