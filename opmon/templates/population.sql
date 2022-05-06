@@ -11,9 +11,6 @@ WITH population AS (
         -- If branches are provided, use those instead.
         -- If neither a pref or branches are available, use the slug and treat it as a rollout
         -- where those with the slug have the feature enabled and those without do not.
-        {% if config.population.monitor_entire_population %}
-          "active" AS branch,
-        {% else %}
         {% if config.population.branches|length > 0 -%}
         mozfun.map.get_key(
           environment.experiments,
@@ -25,6 +22,8 @@ WITH population AS (
           WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
         END
         AS branch,
+        {% elif config.population.monitor_entire_population %}
+          "active" AS branch,
         {% else -%}
           CASE WHEN
             mozfun.map.get_key(
@@ -33,7 +32,6 @@ WITH population AS (
             ).branch IS NULL THEN 'disabled'
           ELSE 'enabled'
           END AS branch,
-        {% endif %}
         {% endif %}
     FROM
         {{ config.population.data_source.from_expression }}
