@@ -31,17 +31,15 @@ VALUES
     "{{ project.config.name }}", 
     "{{ project.config.xaxis.value }}",
     [
-        {% if project.config.population.monitor_entire_population %}
-            "active"
-        {% else %}
-            {% if project.config.population.branches|length > 0  -%}
+        {% if project.config.population.branches|length > 0  -%}
             {% for branch in project.config.population.branches -%}
             "{{ branch }}"
             {{ "," if not loop.last else "" }}
             {% endfor -%}
-            {% else -%}
+        {% elif project.config.population.monitor_entire_population %}
+            "active"
+        {% else %}
             "enabled", "disabled"
-            {% endif -%}
         {% endif %}
     ],
     [

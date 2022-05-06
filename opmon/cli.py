@@ -148,11 +148,11 @@ def run(project_id, dataset_id, date, slug, parallelism):
         # resolve config by applying platform and custom config specs
         platform_definitions = external_configs.definitions[platform]
         spec = copy.deepcopy(platform_definitions.spec)
-        spec.merge(external_config.spec)
         spec.merge(external_configs.default_spec_for_platform(platform))
 
         if experiment and experiment.is_rollout:
             spec.merge(external_configs.default_spec_for_type("rollout"))
+        spec.merge(external_config.spec)
 
         configs.append((external_config.slug, spec.resolve(experiment)))
 
@@ -262,8 +262,8 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
 
         platform_definitions = external_configs.definitions[platform]
         spec = platform_definitions.spec
-        spec.merge(external_config.spec)
         spec.merge(external_configs.default_spec_for_platform(platform))
+        spec.merge(external_config.spec)
         config = (external_config.slug, spec.resolve(experiment))
         break
 
