@@ -241,7 +241,7 @@ class PopulationConfiguration:
 
     data_source: Optional[DataSource] = None
     boolean_pref: Optional[str] = None
-    channel: Optional[Channel] = attr.ib(default=Channel.NIGHTLY)
+    channel: Optional[Channel] = None
     branches: List[str] = attr.Factory(list)
     monitor_entire_population: bool = False
     group_by_dimension: Optional[Dimension] = None

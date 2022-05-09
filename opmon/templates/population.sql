@@ -37,7 +37,9 @@ WITH population AS (
         {{ config.population.data_source.from_expression }}
     WHERE
         DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
+        {% if config.population.channel %}
         AND normalized_channel = '{{ config.population.channel.value }}'
+        {% endif %}
     GROUP BY
         submission_date,
         client_id,
