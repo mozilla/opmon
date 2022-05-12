@@ -1,6 +1,6 @@
 """OpMon."""
 import enum
-from typing import Optional
+from typing import List, Optional
 
 import attr
 
@@ -62,3 +62,34 @@ class Dimension:
     select_expression: str
     friendly_name: Optional[str] = None
     description: Optional[str] = None
+
+
+class AlertType(enum.Enum):
+    """
+    Different types of alerts.
+    """
+
+    # alert when confidence intervals of different branches don't overlap
+    CI_OVERLAP = "ci_overlap"
+
+    # alert if defined thresholds are exceeded/too low
+    THRESHOLD = "threshold"
+
+    # alert if average of most recent measurement window is below/above average of previous window
+    AVG_DIFF = "avg_diff"
+
+
+@attr.s(auto_attribs=True)
+class Alert:
+    """Represents an alert."""
+
+    name: str
+    type: AlertType
+    probes: List[Probe]
+    friendly_name: Optional[str] = None
+    description: Optional[str] = None
+    percentiles: List[int] = []
+    min: Optional[int] = None
+    max: Optional[int] = None
+    window_size: Optional[int] = None
+    max_relative_change: Optional[float] = None

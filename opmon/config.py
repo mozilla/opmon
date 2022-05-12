@@ -7,7 +7,7 @@ import attr
 import cattr
 import pytz
 
-from opmon import Channel, DataSource, Dimension, MonitoringPeriod, Probe
+from opmon import Alert, AlertType, Channel, DataSource, Dimension, MonitoringPeriod, Probe
 from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
@@ -234,6 +234,80 @@ _converter.register_structure_hook(
     DimensionReference, lambda obj, _type: DimensionReference(name=obj)
 )
 
+@attr.s(auto_attribs=True)
+class AlertDefinition:
+    """Describes the interface for defining an alert in configuration."""
+
+    name: str  # implicit in configuration
+    type: AlertType
+    probes: List[ProbeReference]
+    friendly_name: Optional[str] = None
+    description: Optional[str] = None
+    percentiles: List[int] = []
+    min: Optional[int] = None
+    max: Optional[int] = None
+    window_size: Optional[int] = None
+    max_relative_change: Optional[float] = None
+
+    def resolve(self, spec: "MonitoringSpec") -> Alert:
+        """Create and return a `Alert` from the definition."""
+        # filter to only have probes that actually need to be monitored
+        probes = []
+        for probe_ref in {p.name for p in self.probes}:
+            if probe_ref in spec.probes.definitions:
+                probes.append(spec.probes.definitions[probe_ref].resolve(self))
+            else:
+                raise ValueError(f"No definition for probe {probe_ref}.")
+
+        return Alert(
+            name=self.name,
+            type=self.type,
+            probes=probes,
+            friendly_name=self.friendly_name,
+            description=self.description,
+            percentiles=self.percentiles,
+            min=self.min,
+            max=self.max,
+            window_size=self.window_size,
+            max_relative_change=self.max_relative_change
+        )
+
+
+@attr.s(auto_attribs=True)
+class AlertsSpec:
+    """Describes the interface for defining custom alerts."""
+
+    definitions: Dict[str, AlertDefinition] = attr.Factory(dict)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlertsSpec":
+        """Create a `AlertsSpec` from a dictionary."""
+        d = dict((k.lower(), v) for k, v in d.items())
+
+        definitions = {
+            k: _converter.structure({"name": k, **v}, DimensionDefinition) for k, v in d.items()
+        }
+        return cls(definitions=definitions)
+
+    def merge(self, other: "AlertsSpec"):
+        """
+        Merge another alert spec into the current one.
+
+        The `other` AlertsSpec overwrites existing keys.
+        """
+        for alert_name, alert_definition in other.definitions.items():
+            if alert_name in self.definitions:
+                for key in attr.fields_dict(type(self.definitions[alert_name])):
+                    if key == "probes":
+                        self.probes += other.probes
+                    else:
+                        setattr(self.definitions[alert_name], key, getattr(other, key) or getattr(self, key))
+                self.definitions[alert_name]
+            else:
+                self.definitions[alert_name] = alert_definition
+
+        self.definitions.update(other.definitions)
+
 
 @attr.s(auto_attribs=True, kw_only=True)
 class PopulationConfiguration:
@@ -400,6 +474,7 @@ class MonitoringSpec:
     data_sources: DataSourcesSpec = attr.Factory(DataSourcesSpec)
     probes: ProbesSpec = attr.Factory(ProbesSpec)
     dimensions: DimensionsSpec = attr.Factory(DimensionsSpec)
+    alerts: AlertsSpec = attr.Factory(AlertsSpec)
     _resolved: bool = False
 
     @classmethod
@@ -444,3 +519,4 @@ class MonitoringSpec:
             self.data_sources.merge(other.data_sources)
             self.probes.merge(other.probes)
             self.dimensions.merge(other.dimensions)
+            self.alerts.merge(other.alerts)
