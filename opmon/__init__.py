@@ -65,9 +65,7 @@ class Dimension:
 
 
 class AlertType(enum.Enum):
-    """
-    Different types of alerts.
-    """
+    """Different types of alerts."""
 
     # alert when confidence intervals of different branches don't overlap
     CI_OVERLAP = "ci_overlap"

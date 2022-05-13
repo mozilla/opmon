@@ -7,7 +7,15 @@ import attr
 import cattr
 import pytz
 
-from opmon import Alert, AlertType, Channel, DataSource, Dimension, MonitoringPeriod, Probe
+from opmon import (
+    Alert,
+    AlertType,
+    Channel,
+    DataSource,
+    Dimension,
+    MonitoringPeriod,
+    Probe,
+)
 from opmon.experimenter import Experiment
 
 _converter = cattr.Converter()
@@ -234,6 +242,7 @@ _converter.register_structure_hook(
     DimensionReference, lambda obj, _type: DimensionReference(name=obj)
 )
 
+
 @attr.s(auto_attribs=True)
 class AlertDefinition:
     """Describes the interface for defining an alert in configuration."""
@@ -249,13 +258,36 @@ class AlertDefinition:
     window_size: Optional[int] = None
     max_relative_change: Optional[float] = None
 
+    def __attrs_post_init__(self):
+        """Validate that the right parameters have been set depending on the alert type."""
+        if self.type == AlertType.CI_OVERLAP:
+            none_fields = ["min", "max", "window_size", "max_relative_change"]
+        elif self.type == AlertType.THRESHOLD:
+            none_fields = ["window_size", "max_relative_change"]
+            if self.min is None and self.max is None:
+                raise ValueError(
+                    "Either 'max' or 'min' needs to be set when defining a threshold alert"
+                )
+        elif self.type == AlertType.AVG_DIFF:
+            none_fields = ["min", "max"]
+            if self.window_size is None:
+                raise ValueError("'window_size' needs to be specified when using avg_diff alert")
+            if self.max_relative_change is None:
+                raise ValueError("'max_relative_change' to be specified when using avg_diff alert")
+
+        for field in none_fields:
+            if getattr(self, field) is not None:
+                raise ValueError(
+                    f"For alert of type {str(self.type)}, the parameter {field} must not be set"
+                )
+
     def resolve(self, spec: "MonitoringSpec") -> Alert:
         """Create and return a `Alert` from the definition."""
         # filter to only have probes that actually need to be monitored
         probes = []
         for probe_ref in {p.name for p in self.probes}:
             if probe_ref in spec.probes.definitions:
-                probes.append(spec.probes.definitions[probe_ref].resolve(self))
+                probes.append(spec.probes.definitions[probe_ref].resolve(spec))
             else:
                 raise ValueError(f"No definition for probe {probe_ref}.")
 
@@ -269,7 +301,7 @@ class AlertDefinition:
             min=self.min,
             max=self.max,
             window_size=self.window_size,
-            max_relative_change=self.max_relative_change
+            max_relative_change=self.max_relative_change,
         )
 
 
@@ -285,7 +317,7 @@ class AlertsSpec:
         d = dict((k.lower(), v) for k, v in d.items())
 
         definitions = {
-            k: _converter.structure({"name": k, **v}, DimensionDefinition) for k, v in d.items()
+            k: _converter.structure({"name": k, **v}, AlertDefinition) for k, v in d.items()
         }
         return cls(definitions=definitions)
 
@@ -299,14 +331,38 @@ class AlertsSpec:
             if alert_name in self.definitions:
                 for key in attr.fields_dict(type(self.definitions[alert_name])):
                     if key == "probes":
-                        self.probes += other.probes
+                        self.definitions[alert_name].probes += alert_definition.probes
                     else:
-                        setattr(self.definitions[alert_name], key, getattr(other, key) or getattr(self, key))
-                self.definitions[alert_name]
+                        setattr(
+                            self.definitions[alert_name],
+                            key,
+                            getattr(alert_definition, key)
+                            or getattr(self.definitions[alert_name], key),
+                        )
             else:
                 self.definitions[alert_name] = alert_definition
 
         self.definitions.update(other.definitions)
+
+
+_converter.register_structure_hook(AlertsSpec, lambda obj, _type: AlertsSpec.from_dict(obj))
+
+
+@attr.s(auto_attribs=True)
+class AlertReference:
+    """Represents a reference to an alert."""
+
+    name: str
+
+    def resolve(self, spec: "MonitoringSpec") -> Alert:
+        """Return the `Alert` that this is referencing."""
+        if self.name not in spec.alerts.definitions:
+            raise ValueError(f"Alert {self.name} has not been defined.")
+
+        return spec.alerts.definitions[self.name].resolve(spec)
+
+
+_converter.register_structure_hook(AlertReference, lambda obj, _type: AlertReference(name=obj))
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -397,6 +453,7 @@ class ProjectSpec:
     start_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     end_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     probes: List[ProbeReference] = attr.Factory(list)
+    alerts: List[AlertReference] = attr.Factory(list)
     population: PopulationSpec = attr.Factory(PopulationSpec)
 
     @classmethod
@@ -442,6 +499,8 @@ class ProjectSpec:
                 self.population.merge(other.population)
             elif key == "probes":
                 self.probes += other.probes
+            elif key == "alerts":
+                self.alerts += other.alerts
             else:
                 setattr(self, key, getattr(other, key) or getattr(self, key))
 
@@ -458,6 +517,7 @@ class MonitoringConfiguration:
     project: Optional[ProjectConfiguration] = None
     probes: List[Probe] = attr.Factory(list)
     dimensions: List[Dimension] = attr.Factory(list)
+    alerts: List[Alert] = attr.Factory(list)
 
 
 @attr.s(auto_attribs=True)
@@ -506,10 +566,19 @@ class MonitoringSpec:
             else:
                 raise ValueError(f"No definition for dimension {dimension_ref}.")
 
+        # filter to only have alerts that actually are in use
+        alerts = []
+        for alert_ref in {d.name for d in self.project.alerts}:
+            if alert_ref in self.alerts.definitions:
+                alerts.append(self.alerts.definitions[alert_ref].resolve(self))
+            else:
+                raise ValueError(f"No definition for alert {alert_ref}.")
+
         return MonitoringConfiguration(
             project=self.project.resolve(self, experiment) if self.project else None,
             probes=probes,
             dimensions=dimensions,
+            alerts=alerts,
         )
 
     def merge(self, other: Optional["MonitoringSpec"]):
