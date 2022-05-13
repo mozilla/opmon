@@ -6,7 +6,7 @@ import pytz
 import toml
 
 from opmon import MonitoringPeriod
-from opmon.config import MonitoringConfiguration, MonitoringSpec
+from opmon.config import MonitoringConfiguration, MonitoringSpec, ProbeReference
 
 
 class TestConfig:
@@ -267,6 +267,66 @@ class TestConfig:
             """
             [project]
             xaxis = "Nothing"
+            """
+        )
+
+        with pytest.raises(ValueError):
+            MonitoringSpec.from_dict(toml.loads(config_str))
+
+    def test_alert_definition(self):
+        config_str = dedent(
+            """
+            [project]
+            alerts = ["test"]
+            probes = ["test_probe"]
+
+            [probes]
+            [probes.test_probe]
+            select_expression = "SELECT 1"
+            data_source = "foo"
+
+            [data_sources]
+            [data_sources.foo]
+            from_expression = "test"
+
+            [alerts]
+            [alerts.test]
+            type = "threshold"
+            probes = ["test_probe"]
+            min = 1
+            max = 3
+            """
+        )
+        spec = MonitoringSpec.from_dict(toml.loads(config_str))
+        assert ProbeReference(name="test_probe") in spec.alerts.definitions["test"].probes
+        conf = spec.resolve()
+        assert conf.alerts[0].name == "test"
+
+    def test_alert_incorrect_type(self):
+        config_str = dedent(
+            """
+            [project]
+            alerts = ["test"]
+
+            [alerts]
+            [alerts.test]
+            type = "foo"
+            """
+        )
+
+        with pytest.raises(ValueError):
+            MonitoringSpec.from_dict(toml.loads(config_str))
+
+    def test_alert_incorrect_config(self):
+        config_str = dedent(
+            """
+            [project]
+            alerts = ["test"]
+
+            [alerts]
+            [alerts.test]
+            type = "threshold"
+            probes = []
             """
         )
 
