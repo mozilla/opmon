@@ -253,8 +253,8 @@ class AlertDefinition:
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     percentiles: List[int] = []
-    min: Optional[int] = None
-    max: Optional[int] = None
+    min: Optional[List[int]] = None
+    max: Optional[List[int]] = None
     window_size: Optional[int] = None
     max_relative_change: Optional[float] = None
 
@@ -267,6 +267,16 @@ class AlertDefinition:
             if self.min is None and self.max is None:
                 raise ValueError(
                     "Either 'max' or 'min' needs to be set when defining a threshold alert"
+                )
+            if self.min and len(self.min) != len(self.percentiles):
+                raise ValueError(
+                    "Number of 'min' thresholds not matching number of percentiles to monitor. "
+                    + "A 'min' threshold needs to be specified for each percentile."
+                )
+            if self.max and len(self.max) != len(self.percentiles):
+                raise ValueError(
+                    "Number of 'max' thresholds not matching number of percentiles to monitor. "
+                    + "A 'max' threshold needs to be specified for each percentile."
                 )
         elif self.type == AlertType.AVG_DIFF:
             none_fields = ["min", "max"]
@@ -436,6 +446,7 @@ class PopulationSpec:
 class ProjectConfiguration:
     """Describes the interface for defining the project in configuration."""
 
+    reference_branch: str = "control"
     name: Optional[str] = None
     xaxis: MonitoringPeriod = attr.ib(default=MonitoringPeriod.DAY)
     start_date: Optional[datetime] = None
@@ -454,6 +465,7 @@ class ProjectSpec:
     end_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     probes: List[ProbeReference] = attr.Factory(list)
     alerts: List[AlertReference] = attr.Factory(list)
+    reference_branch: Optional[str] = None
     population: PopulationSpec = attr.Factory(PopulationSpec)
 
     @classmethod
@@ -486,6 +498,12 @@ class ProjectSpec:
                 )
             ),
             population=self.population.resolve(spec, experiment),
+            reference_branch=self.reference_branch
+            or (
+                experiment.reference_branch
+                if experiment and experiment.reference_branch
+                else "control"
+            ),
         )
 
     def merge(self, other: "ProjectSpec") -> None:

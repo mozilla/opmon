@@ -87,7 +87,7 @@ class Alert:
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     percentiles: List[int] = []
-    min: Optional[int] = None
-    max: Optional[int] = None
+    min: Optional[List[int]] = None
+    max: Optional[List[int]] = None
     window_size: Optional[int] = None
     max_relative_change: Optional[float] = None

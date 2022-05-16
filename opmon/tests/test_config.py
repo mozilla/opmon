@@ -293,8 +293,9 @@ class TestConfig:
             [alerts.test]
             type = "threshold"
             probes = ["test_probe"]
-            min = 1
-            max = 3
+            min = [1]
+            max = [3]
+            percentiles = [1]
             """
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
@@ -326,6 +327,25 @@ class TestConfig:
             [alerts]
             [alerts.test]
             type = "threshold"
+            probes = []
+            """
+        )
+
+        with pytest.raises(ValueError):
+            MonitoringSpec.from_dict(toml.loads(config_str))
+
+    def test_alert_incorrect_number_of_thresholds(self):
+        config_str = dedent(
+            """
+            [project]
+            alerts = ["test"]
+
+            [alerts]
+            [alerts.test]
+            type = "threshold"
+            min = [1, 2]
+            percentiles = [1, 2]
+            max = [1]
             probes = []
             """
         )

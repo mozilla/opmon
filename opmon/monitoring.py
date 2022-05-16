@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import attr
 from jinja2 import Environment, FileSystemLoader
 
-from . import Channel, errors
+from . import AlertType, Channel, errors
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
 from .dryrun import dry_run_query
@@ -20,6 +20,7 @@ PATH = Path(os.path.dirname(__file__))
 
 QUERY_FILENAME = "{}_query.sql"
 VIEW_FILENAME = "{}_view.sql"
+ALERTS_FILENAME = "alerts_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 
@@ -56,6 +57,8 @@ class Monitoring:
             # Periodically print so airflow gke operator doesn't think task is dead
             print(f"Run query for {self.slug} for {data_type} types")
             self._run_sql_for_data_type(submission_date, data_type)
+
+        self.bigquery.execute(self._get_alerts_sql())
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
@@ -176,6 +179,26 @@ class Monitoring:
             raise errors.EndedException(self.slug)
 
         return True
+
+    def _get_alerts_sql(self) -> None:
+        """Get the alerts view SQL."""
+        alerts: Dict[str, Any] = {}
+        for alert_type in AlertType:
+            alerts[alert_type.value] = []
+
+        for alert in self.config.alerts:
+            alerts[alert.type.value].append(alert)
+
+        render_kwargs = {
+            "gcp_project": self.project,
+            "dataset": self.dataset,
+            "config": self.config.project,
+            "normalized_slug": self.normalized_slug,
+            "dimensions": self.config.dimensions,
+            "alerts": alerts,
+        }
+        sql = self._render_sql(ALERTS_FILENAME, render_kwargs)
+        return sql
 
     def validate(self) -> None:
         """Validate ETL and configs of opmon project."""
