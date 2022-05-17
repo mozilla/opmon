@@ -63,6 +63,7 @@ class Metadata:
                     "dimensions": config.dimensions,
                     "probes": render_probes,
                     "config": config.project,
+                    "alerts": config.alerts,
                 }
             )
 

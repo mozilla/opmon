@@ -23,7 +23,7 @@ slug = "{{ project.slug }}"
 ;
 
 INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
-(slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension)
+(slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension, alerting)
 VALUES 
 {% for project in projects %}
 (
@@ -64,6 +64,11 @@ VALUES
     "{{ project.config.population.group_by_dimension.name }}"
     {% else -%}
     NULL
+    {% endif -%},
+    {% if project.alerts | length > 0 -%}
+    TRUE
+    {% else -%}
+    FALSE
     {% endif -%}
 )
 {{ "," if not loop.last else "" }}
