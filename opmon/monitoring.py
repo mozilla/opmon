@@ -63,7 +63,12 @@ class Monitoring:
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
         """Generate and execute the ETL for a specific data type."""
-        self._check_runnable(submission_date)
+        try:
+            self._check_runnable(submission_date)
+        except Exception as e:
+            print(f"Failed to run opmon project: {e}")
+            return
+
         date_partition = str(submission_date).replace("-", "").split(" ")[0]
         destination_table = f"{self.normalized_slug}_{data_type}${date_partition}"
 
