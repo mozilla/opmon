@@ -195,7 +195,7 @@ INNER JOIN
             NULL AS max,
             NULL AS min
         )
-        {{ "," if alerts['avg_diff']|length > 0 else "" }}
+        {{ "," if alerts['threshold']|length > 0 else "" }}
         {% for alert in alerts['threshold'] %}
             {% for probe in alert.probes %}
                 {% for percentile in alert.percentiles %}

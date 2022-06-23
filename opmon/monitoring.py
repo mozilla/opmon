@@ -58,7 +58,7 @@ class Monitoring:
             print(f"Run query for {self.slug} for {data_type} types")
             self._run_sql_for_data_type(submission_date, data_type)
 
-        self.bigquery.execute(self._get_alerts_sql())
+        self._run_sql_for_alerts(submission_date)
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
@@ -185,14 +185,23 @@ class Monitoring:
 
         return True
 
-    def _get_alerts_sql(self) -> None:
+    def _run_sql_for_alerts(self, submission_date) -> None:
         """Get the alerts view SQL."""
+        try:
+            self._check_runnable(submission_date)
+        except Exception as e:
+            print(f"Failed to run opmon project: {e}")
+            return
+
         alerts: Dict[str, Any] = {}
         for alert_type in AlertType:
             alerts[alert_type.value] = []
 
         for alert in self.config.alerts:
             alerts[alert.type.value].append(alert)
+
+        if len(alerts) <= 0:
+            return
 
         render_kwargs = {
             "gcp_project": self.project,
@@ -203,7 +212,7 @@ class Monitoring:
             "alerts": alerts,
         }
         sql = self._render_sql(ALERTS_FILENAME, render_kwargs)
-        return sql
+        self.bigquery.execute(sql)
 
     def validate(self) -> None:
         """Validate ETL and configs of opmon project."""
