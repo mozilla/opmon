@@ -57,6 +57,14 @@ class Metadata:
                 {"name": probe.name, "agg_type": probe.type} for probe in probes if probe.type
             ]
 
+            if (
+                config.project
+                and config.project.end_date
+                and config.project.start_date
+                and config.project.end_date <= config.project.start_date
+            ):
+                continue
+
             project_metadata.append(
                 {
                     "slug": slug,
