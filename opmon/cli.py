@@ -194,7 +194,8 @@ def run(project_id, dataset_id, date, slug, parallelism):
         results = pool.map(run, configs)
         success = all(results)
 
-    Metadata(project_id, dataset_id, configs).write()
+    if len(configs) > 0:
+        Metadata(project_id, dataset_id, configs).write()
 
     sys.exit(0 if success else 1)
 
