@@ -6,7 +6,11 @@ AS
 WITH measured_values AS (
   -- get all scalar and histogram value for each day; group by metric and branch
   SELECT
+    {% if config.xaxis.value == "submission_date" -%}
     submission_date,
+    {% elif config.xaxis.value == "build_id" -%}
+    PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) AS submission_date,
+    {% endif -%}
     probe,
     branch,
     {% for dimension in dimensions -%}
@@ -29,7 +33,11 @@ WITH measured_values AS (
     branch
   UNION ALL
   SELECT
+    {% if config.xaxis.value == "submission_date" -%}
     submission_date,
+    {% elif config.xaxis.value == "build_id" -%}
+    PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) AS submission_date,
+    {% endif -%}
     probe,
     branch,
     {% for dimension in dimensions -%}
@@ -109,7 +117,9 @@ ci_overlaps AS (
         {{ "OR" if not loop.last else ")" }}
         {% endfor%}
     {% endfor %}
-), hist_diffs AS (
+), 
+{% for hist_diff_alert in alerts['avg_diff'] %}
+hist_diffs_{{ hist_diff_alert.name }} AS (
     SELECT 
         measured_values.submission_date,
         measured_values.probe,
@@ -117,60 +127,68 @@ ci_overlaps AS (
         {% for dimension in dimensions -%}
             measured_values.{{ dimension.name }},
         {% endfor -%}
-        thresholds.percentile,
-        ABS(
-            AVG(udf_js.jackknife_percentile_ci(thresholds.percentile, measured_values.values).percentile) OVER (
+        percentile,
+        {{ hist_diff_alert.window_size }} AS window_size,
+        SAFE_DIVIDE(ABS(
+            AVG(udf_js.jackknife_percentile_ci(percentile, measured_values.values).percentile) OVER (
                 PARTITION BY 
                     branch, 
                     {% for dimension in dimensions -%}
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.probe 
-                ORDER BY submission_date ASC ROWS BETWEEN 7 PRECEDING AND CURRENT ROW) -
-            AVG(udf_js.jackknife_percentile_ci(thresholds.percentile, measured_values.values).percentile) OVER (
+                ORDER BY submission_date ASC ROWS BETWEEN {{ hist_diff_alert.window_size }} PRECEDING AND CURRENT ROW) -
+            AVG(udf_js.jackknife_percentile_ci(percentile, measured_values.values).percentile) OVER (
                 PARTITION BY 
                     branch, 
                     {% for dimension in dimensions -%}
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.probe 
-                ORDER BY submission_date ASC ROWS BETWEEN 14 PRECEDING AND 7 PRECEDING)
-        ) / AVG(udf_js.jackknife_percentile_ci(thresholds.percentile, measured_values.values).percentile) OVER (
+                ORDER BY submission_date ASC ROWS BETWEEN {{ hist_diff_alert.window_size + hist_diff_alert.window_size }} PRECEDING AND {{ hist_diff_alert.window_size }} PRECEDING)
+        ), AVG(udf_js.jackknife_percentile_ci(percentile, measured_values.values).percentile) OVER (
                 PARTITION BY 
                     branch, 
                     {% for dimension in dimensions -%}
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.probe 
-                ORDER BY submission_date ASC ROWS BETWEEN 7 PRECEDING AND CURRENT ROW) > thresholds.max_relative_change AS diff
-    FROM measured_values
-    INNER JOIN
+                ORDER BY submission_date ASC ROWS BETWEEN {{ hist_diff_alert.window_size }} PRECEDING AND CURRENT ROW)
+        ) > {{ hist_diff_alert.max_relative_change }} AS diff
+    FROM measured_values,
         UNNEST([
-            STRUCT(
-                "" AS probe,
-                NULL AS percentile,
-                NULL AS window_size,
-                NULL AS max_relative_change
-            )
-            {{ "," if alerts['avg_diff']|length > 0 else "" }}
-            {% for alert in alerts['avg_diff'] %}
-                {% for percentile in alert.percentiles %}
-                    {% for probe in alert.probes %}
-                        STRUCT(
-                            '{{ probe.name }}' AS probe,
-                            {{ percentile }} AS percentile,
-                            {{ alert.window_size }} AS window_size,
-                            {{ alert.max_relative_change }} AS max_relative_change
-                        )
-                        {{ "," if not loop.last else "" }}
-                    {% endfor%}
-                    {{ "," if not loop.last else "" }}
-                {% endfor %}
-                {{ "," if not loop.last else "" }}
+            {% for percentile in hist_diff_alert.percentiles %}
+            {{ percentile }}
+            {{ "," if not loop.last else "" }}
             {% endfor %}
-        ]) thresholds
-    ON
-        thresholds.probe = measured_values.probe
+        ]) AS percentile
+    WHERE measured_values.probe IN (
+        {% for probe in hist_diff_alert.probes %}
+        '{{ probe.name }}'
+        {{ "," if not loop.last else "" }}
+        {% endfor %}
+    )
+),
+{% endfor %}
+hist_diffs AS (
+    {% if alerts['avg_diff']| length > 0 %}
+    {% for hist_diff_alert in alerts['avg_diff'] %}
+    SELECT * 
+    FROM hist_diffs_{{ hist_diff_alert.name }}
+    {{ "UNION ALL" if not loop.last else "" }}
+    {% endfor %}
+    {% else %}
+    SELECT
+        NULL AS submission_date,
+        NULL AS probe,
+        NULL AS branch,
+        {% for dimension in dimensions -%}
+            NULL AS {{ dimension.name }},
+        {% endfor -%}
+        NULL AS percentile,
+        NULL AS diff,
+        NULL AS window_size,
+    {% endif %}
 )
 
 -- checks for thresholds
@@ -252,4 +270,4 @@ SELECT
     percentile,
     "Significant difference to historical data" AS message
 FROM hist_diffs
-WHERE diff = TRUE AND submission_date > DATE_ADD(DATE('{{ config.start_date }}'), INTERVAL 7 DAY)
+WHERE diff = TRUE AND submission_date > DATE_ADD(DATE('{{ config.start_date }}'), INTERVAL window_size DAY)
