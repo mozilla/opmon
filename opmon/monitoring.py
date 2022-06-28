@@ -194,13 +194,15 @@ class Monitoring:
             return
 
         alerts: Dict[str, Any] = {}
+        total_alerts = 0
         for alert_type in AlertType:
             alerts[alert_type.value] = []
 
         for alert in self.config.alerts:
             alerts[alert.type.value].append(alert)
+            total_alerts += 1
 
-        if len(alerts) <= 0:
+        if total_alerts <= 0:
             return
 
         render_kwargs = {
@@ -211,6 +213,7 @@ class Monitoring:
             "dimensions": self.config.dimensions,
             "alerts": alerts,
         }
+
         sql = self._render_sql(ALERTS_FILENAME, render_kwargs)
         self.bigquery.execute(sql)
 
