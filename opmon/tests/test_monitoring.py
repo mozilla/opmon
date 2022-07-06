@@ -138,4 +138,4 @@ class TestMonitoring:
             submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
         )
 
-        assert "test" in monitoring._get_data_type_view_sql(data_type="scalar")
+        assert "test" in monitoring._get_view_sql()
