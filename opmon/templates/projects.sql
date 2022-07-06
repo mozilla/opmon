@@ -9,6 +9,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     start_date DATE,
     end_date DATE,
     group_by_dimension STRING,
+    compact_visualization BOOLEAN,
 );
 {% endif -%}
 
@@ -23,7 +24,7 @@ slug = "{{ project.slug }}"
 ;
 
 INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
-(slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension, alerting)
+(slug, name, xaxis, branches, dimensions, probes, start_date, end_date, group_by_dimension, alerting, compact_visualization)
 VALUES 
 {% for project in projects %}
 (
@@ -69,7 +70,8 @@ VALUES
     TRUE
     {% else -%}
     FALSE
-    {% endif -%}
+    {% endif -%},
+    {{ project.config.compact_visualization }}
 )
 {{ "," if not loop.last else "" }}
 {% endfor %}
