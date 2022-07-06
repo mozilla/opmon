@@ -19,7 +19,7 @@ from .utils import bq_normalize_name
 PATH = Path(os.path.dirname(__file__))
 
 QUERY_FILENAME = "{}_query.sql"
-VIEW_FILENAME = "{}_view.sql"
+VIEW_FILENAME = "probe_view.sql"
 ALERTS_FILENAME = "alerts_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
@@ -53,12 +53,15 @@ class Monitoring:
 
     def run(self, submission_date):
         """Execute and generate the operational monitoring ETL for a specific date."""
-        for data_type in DATA_TYPES:
-            # Periodically print so airflow gke operator doesn't think task is dead
-            print(f"Run query for {self.slug} for {data_type} types")
-            self._run_sql_for_data_type(submission_date, data_type)
+        # for data_type in DATA_TYPES:
+        # Periodically print so airflow gke operator doesn't think task is dead
+        # print(f"Run query for {self.slug} for {data_type} types")
+        # self._run_sql_for_data_type(submission_date, data_type)
+        print(f"Create view for {self.slug}")
+        self.bigquery.execute(self._get_view_sql())
 
-        self._run_sql_for_alerts(submission_date)
+        # print(f"Create alerts view for {self.slug}")
+        # self._run_sql_for_alerts(submission_date)
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
@@ -79,9 +82,6 @@ class Monitoring:
             time_partitioning="submission_date",
             dataset=f"{self.dataset}_derived",
         )
-
-        print(f"Create view for {self.slug} {data_type}")
-        self.bigquery.execute(self._get_data_type_view_sql(data_type=data_type))
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
         """Render and return the SQL from a template."""
@@ -155,9 +155,8 @@ class Monitoring:
         sql = self._render_sql(sql_filename, render_kwargs)
         return sql
 
-    def _get_data_type_view_sql(self, data_type: str) -> str:
+    def _get_view_sql(self) -> str:
         """Return the SQL to create a BigQuery view."""
-        sql_filename = VIEW_FILENAME.format(data_type)
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
@@ -165,7 +164,7 @@ class Monitoring:
             "normalized_slug": self.normalized_slug,
             "dimensions": self.config.dimensions,
         }
-        sql = self._render_sql(sql_filename, render_kwargs)
+        sql = self._render_sql(VIEW_FILENAME, render_kwargs)
         return sql
 
     def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
