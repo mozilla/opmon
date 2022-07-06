@@ -452,6 +452,7 @@ class ProjectConfiguration:
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     population: PopulationConfiguration = attr.Factory(PopulationConfiguration)
+    compact_visualization: bool = False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -467,6 +468,7 @@ class ProjectSpec:
     alerts: List[AlertReference] = attr.Factory(list)
     reference_branch: Optional[str] = None
     population: PopulationSpec = attr.Factory(PopulationSpec)
+    compact_visualization: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProjectSpec":
@@ -504,6 +506,7 @@ class ProjectSpec:
                 if experiment and experiment.reference_branch
                 else "control"
             ),
+            compact_visualization=self.compact_visualization,
         )
 
     def merge(self, other: "ProjectSpec") -> None:
