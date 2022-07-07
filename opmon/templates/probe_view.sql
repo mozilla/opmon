@@ -213,9 +213,9 @@ SELECT
       VALUES
       ARRAY<STRUCT<key FLOAT64, value FLOAT64>
   >>(1,
-      COALESCE(SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS INT64), 0),
+      COALESCE(SAFE_CAST(SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS FLOAT64) AS INT64), 0),
       1,
-      [0, COALESCE(SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS INT64), 0)],
+      [0, COALESCE(SAFE_CAST(SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS FLOAT64) AS INT64), 0)],
       [STRUCT<key FLOAT64, value FLOAT64>(
         COALESCE(SAFE_CAST(FORMAT("%.*f", 2, COALESCE(mozfun.glam.histogram_bucket_from_value(buckets, SAFE_CAST(value AS FLOAT64)), 0) + 0.0001) AS FLOAT64), 0.0), 1
       )]

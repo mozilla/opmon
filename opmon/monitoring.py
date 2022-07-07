@@ -53,15 +53,15 @@ class Monitoring:
 
     def run(self, submission_date):
         """Execute and generate the operational monitoring ETL for a specific date."""
-        # for data_type in DATA_TYPES:
-        # Periodically print so airflow gke operator doesn't think task is dead
-        # print(f"Run query for {self.slug} for {data_type} types")
-        # self._run_sql_for_data_type(submission_date, data_type)
+        for data_type in DATA_TYPES:
+            # Periodically print so airflow gke operator doesn't think task is dead
+            print(f"Run query for {self.slug} for {data_type} types")
+            self._run_sql_for_data_type(submission_date, data_type)
         print(f"Create view for {self.slug}")
         self.bigquery.execute(self._get_view_sql())
 
-        # print(f"Create alerts view for {self.slug}")
-        # self._run_sql_for_alerts(submission_date)
+        print(f"Create alerts view for {self.slug}")
+        self._run_sql_for_alerts(submission_date)
         return True
 
     def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
