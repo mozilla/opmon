@@ -4,27 +4,11 @@ CREATE OR REPLACE VIEW
   `{{ gcp_project }}.{{ dataset }}.{{ normalized_slug }}`
 AS
 -- Prepare scalar values
-WITH valid_builds_scalar AS (
-    SELECT build_id
+
+WITH filtered_scalars AS (
+    SELECT *
     FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
     WHERE {% include 'where_clause.sql' -%}
-    GROUP BY 1
-    -- todo adjust thresholds
-    -- HAVING COUNT(DISTINCT client_id) >= {{ user_count_threshold }}
-),
-
-filtered_scalars AS (
-    SELECT *
-    FROM valid_builds_scalar
-    INNER JOIN `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
-    USING (build_id)
-    WHERE {% include 'where_clause.sql' -%}
-    {% if config.xaxis.value == "build_id" -%}
-    AND DATE(submission_date) = (
-      SELECT MAX(submission_date)
-      FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_scalar`
-    )
-    {% endif -%}
 ),
 
 log_min_max AS (
@@ -57,57 +41,17 @@ aggregated_scalars AS (
       {{ dimension.name }},
     {% endfor -%}
     branch,
-    agg_type,
     name,
-    CASE
-      agg_type
-    WHEN
-      "MAX"
-    THEN
-      MAX(value)
-    ELSE
-      SUM(value)
-    END
-    AS value
+    value
   FROM
     filtered_scalars
-  GROUP BY
-    client_id,
-    {% if config.xaxis.value == "submission_date" -%}
-    submission_date,
-    {% else -%}
-    build_id,
-    {% endif -%}
-    {% for dimension in dimensions -%}
-      {{ dimension.name }},
-    {% endfor -%}
-    branch,
-    agg_type,
-    name
 ),
 
 -- Prepare histogram values
-valid_builds_histograms AS (
-    SELECT build_id
-    FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
-    WHERE {% include 'where_clause.sql' -%}
-    GROUP BY 1
-    -- todo adjust thresholds
-    -- HAVING COUNT(DISTINCT client_id) >= {{ user_count_threshold }}
-),
-
 filtered_histograms AS (
     SELECT *
-    FROM valid_builds_histograms
-    INNER JOIN `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
-    USING (build_id)
+    FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
     WHERE {% include 'where_clause.sql' -%}
-    {% if config.xaxis.value == "build_id" -%}
-    AND DATE(submission_date) = (
-      SELECT MAX(submission_date)
-      FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_histogram`
-    )
-    {% endif -%}
 ),
 
 normalized_histograms AS (
@@ -123,7 +67,7 @@ normalized_histograms AS (
         {% endfor -%}
         branch,
         probe,
-        {% if probes_per_dataset != {} %}
+        {% if metrics_per_dataset != {} %}
         STRUCT<
             bucket_count INT64,
             sum INT64,
@@ -171,9 +115,8 @@ SELECT
       {{ dimension.name }},
     {% endfor -%}
     branch,
-    "SUM" AS agg_type,
-    probe,
-    {% if probes_per_dataset != {} %}
+    probe AS probe,
+    {% if metrics_per_dataset != {} %}
     STRUCT<
         bucket_count INT64,
         sum INT64,
@@ -203,7 +146,6 @@ SELECT
     {{ dimension.name }},
   {% endfor -%}
   branch,
-  agg_type,
   name AS probe,
   STRUCT<
       bucket_count INT64,

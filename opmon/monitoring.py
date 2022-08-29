@@ -19,7 +19,7 @@ from .utils import bq_normalize_name
 PATH = Path(os.path.dirname(__file__))
 
 QUERY_FILENAME = "{}_query.sql"
-VIEW_FILENAME = "probe_view.sql"
+VIEW_FILENAME = "metric_view.sql"
 ALERTS_FILENAME = "alerts_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
@@ -115,12 +115,12 @@ class Monitoring:
 
         # group probes that are part of the same dataset
         # necessary for creating the SQL template
-        probes_per_dataset = {}
+        metrics_per_dataset = {}
         for probe in probes:
-            if probe.data_source.name not in probes_per_dataset:
-                probes_per_dataset[probe.data_source.name] = [probe]
+            if probe.data_source.name not in metrics_per_dataset:
+                metrics_per_dataset[probe.data_source.name] = [probe]
             else:
-                probes_per_dataset[probe.data_source.name].append(probe)
+                metrics_per_dataset[probe.data_source.name].append(probe)
 
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
@@ -146,7 +146,7 @@ class Monitoring:
             # "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
             #     self.config.project.population.channel
             # ],
-            "probes_per_dataset": probes_per_dataset,
+            "metrics_per_dataset": metrics_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
         }
@@ -227,3 +227,4 @@ class Monitoring:
                 first_run=True,
             )
             dry_run_query(data_type_sql)
+            print(data_type_sql)

@@ -36,7 +36,12 @@ WITH population AS (
     FROM
         {{ config.population.data_source.from_expression }}
     WHERE
+        {% if config.xaxis.value == "submission_date" %}
         DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')
+        {% else %}
+        -- when aggregating by build_id, only use the most recent 14 days of data
+        DATE({{ config.population.data_source.submission_date_column }}) BETWEEN DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY) AND DATE('{{ submission_date }}')
+        {% endif %}
         {% if config.population.channel %}
         AND normalized_channel = '{{ config.population.channel.value }}'
         {% endif %}
