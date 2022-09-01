@@ -1,5 +1,6 @@
 """OpMon config."""
 
+import copy
 from datetime import datetime
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -17,6 +18,7 @@ from opmon import (
     Probe,
 )
 from opmon.experimenter import Experiment
+from opmon.statistic import Statistic
 
 _converter = cattr.Converter()
 
@@ -108,6 +110,14 @@ _converter.register_structure_hook(
 
 
 @attr.s(auto_attribs=True)
+class Summary:
+    """Represents a metric with a statistical treatment."""
+
+    metric: "Probe"
+    statistic: "Statistic"
+
+
+@attr.s(auto_attribs=True)
 class ProbeDefinition:
     """Describes the interface for defining a probe in configuration."""
 
@@ -118,18 +128,43 @@ class ProbeDefinition:
     description: Optional[str] = None
     category: Optional[str] = None
     type: Optional[str] = None
+    statistics: Optional[Dict[str, Dict[str, Any]]] = None
 
-    def resolve(self, spec: "MonitoringSpec") -> Probe:
+    def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
         """Create and return a `Probe` instance from this definition."""
-        return Probe(
-            name=self.name,
-            data_source=self.data_source.resolve(spec),
-            select_expression=self.select_expression,
-            friendly_name=self.friendly_name,
-            description=self.description,
-            category=self.category,
-            type=self.type,
-        )
+        summaries = []
+        if self.statistics:
+            for statistic_name, params in self.statistics.items():
+                stats_params = copy.deepcopy(params)
+                probe = Probe(
+                    name=self.name,
+                    data_source=self.data_source.resolve(spec),
+                    select_expression=self.select_expression,
+                    friendly_name=self.friendly_name,
+                    description=self.description,
+                    category=self.category,
+                    type=self.type,
+                )
+
+                found = False
+                for statistic in Statistic.__subclasses__():
+                    if statistic.name() == statistic_name:
+                        found = True
+                        break
+
+                if not found:
+                    raise ValueError(f"Statistic '{statistic_name}' does not exist.")
+
+                stats_params = copy.deepcopy(params)
+
+                summaries.append(
+                    Summary(
+                        metric=probe,
+                        statistic=statistic.from_dict(stats_params),
+                    )
+                )
+
+        return summaries
 
 
 @attr.s(auto_attribs=True)
@@ -166,7 +201,7 @@ class ProbeReference:
 
     name: str
 
-    def resolve(self, spec: "MonitoringSpec") -> Probe:
+    def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
         """Return the `DataSource` that this is referencing."""
         if self.name in spec.probes.definitions:
             return spec.probes.definitions[self.name].resolve(spec)
@@ -297,7 +332,7 @@ class AlertDefinition:
         probes = []
         for probe_ref in {p.name for p in self.probes}:
             if probe_ref in spec.probes.definitions:
-                probes.append(spec.probes.definitions[probe_ref].resolve(spec))
+                probes += spec.probes.definitions[probe_ref].resolve(spec)
             else:
                 raise ValueError(f"No definition for probe {probe_ref}.")
 
@@ -536,7 +571,7 @@ class MonitoringConfiguration:
     """
 
     project: Optional[ProjectConfiguration] = None
-    probes: List[Probe] = attr.Factory(list)
+    probes: List[Summary] = attr.Factory(list)
     dimensions: List[Dimension] = attr.Factory(list)
     alerts: List[Alert] = attr.Factory(list)
 
@@ -575,7 +610,7 @@ class MonitoringSpec:
         probes = []
         for probe_ref in {p.name for p in self.project.probes}:
             if probe_ref in self.probes.definitions:
-                probes.append(self.probes.definitions[probe_ref].resolve(self))
+                probes += self.probes.definitions[probe_ref].resolve(self)
             else:
                 raise ValueError(f"No definition for probe {probe_ref}.")
 

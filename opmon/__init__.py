@@ -2,6 +2,8 @@
 import enum
 from typing import List, Optional
 
+from opmon.config import Summary
+
 import attr
 
 
@@ -83,7 +85,7 @@ class Alert:
 
     name: str
     type: AlertType
-    probes: List[Probe]
+    probes: List[Summary]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     percentiles: List[int] = []

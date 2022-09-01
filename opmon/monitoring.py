@@ -21,6 +21,7 @@ PATH = Path(os.path.dirname(__file__))
 QUERY_FILENAME = "{}_query.sql"
 VIEW_FILENAME = "metric_view.sql"
 ALERTS_FILENAME = "alerts_view.sql"
+STATISTICS_FILENAME = "statistics.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 
@@ -60,6 +61,9 @@ class Monitoring:
         print(f"Create view for {self.slug}")
         self.bigquery.execute(self._get_view_sql())
 
+        print("Calculate statistics")
+        self.bigquery.execute(self._get_statistics_sql(submission_date))
+
         print(f"Create alerts view for {self.slug}")
         self._run_sql_for_alerts(submission_date)
         return True
@@ -96,7 +100,7 @@ class Monitoring:
     ) -> str:
         """Return SQL for data_type ETL."""
         probes = self.config.probes
-        probes = [probe for probe in probes if probe.type == data_type]
+        probes = [probe for probe in probes if probe.metric.type == data_type]
 
         if len(probes) == 0:
             # There are no probes for this data source + data type combo
@@ -117,10 +121,10 @@ class Monitoring:
         # necessary for creating the SQL template
         metrics_per_dataset = {}
         for probe in probes:
-            if probe.data_source.name not in metrics_per_dataset:
-                metrics_per_dataset[probe.data_source.name] = [probe]
+            if probe.metric.data_source.name not in metrics_per_dataset:
+                metrics_per_dataset[probe.metric.data_source.name] = [probe.metric]
             else:
-                metrics_per_dataset[probe.data_source.name].append(probe)
+                metrics_per_dataset[probe.metric.data_source.name].append(probe.metric)
 
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
@@ -165,6 +169,19 @@ class Monitoring:
             "dimensions": self.config.dimensions,
         }
         sql = self._render_sql(VIEW_FILENAME, render_kwargs)
+        return sql
+
+    def _get_statistics_sql(self, submission_date) -> str:
+        """Return the SQL to run the statistics."""
+        render_kwargs = {
+            "gcp_project": self.project,
+            "dataset": self.dataset,
+            "config": self.config.project,
+            "normalized_slug": self.normalized_slug,
+            "dimensions": self.config.dimensions,
+            "probes": self.config.probes,
+        }
+        sql = self._render_sql(STATISTICS_FILENAME, render_kwargs)
         return sql
 
     def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
