@@ -54,7 +54,9 @@ class Metadata:
         for slug, config in self.projects:
             probes = config.probes
             render_probes = [
-                {"name": probe.name, "agg_type": probe.type} for probe in probes if probe.type
+                {"name": probe.metric.name, "agg_type": probe.metric.type}
+                for probe in probes
+                if probe.metric.type
             ]
 
             if (
