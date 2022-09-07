@@ -1,8 +1,9 @@
 """OpMon."""
 import enum
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
-from opmon.config import Summary
+if TYPE_CHECKING:
+    from opmon.config import Summary
 
 import attr
 
@@ -85,7 +86,7 @@ class Alert:
 
     name: str
     type: AlertType
-    probes: List[Summary]
+    probes: List["Summary"]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     percentiles: List[int] = []

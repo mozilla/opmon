@@ -18,8 +18,7 @@ from .utils import bq_normalize_name
 
 PATH = Path(os.path.dirname(__file__))
 
-QUERY_FILENAME = "{}_query.sql"
-VIEW_FILENAME = "metric_view.sql"
+QUERY_FILENAME = "metric_query.sql"
 ALERTS_FILENAME = "alerts_view.sql"
 STATISTICS_FILENAME = "statistics.sql"
 TEMPLATE_FOLDER = PATH / "templates"
@@ -54,12 +53,8 @@ class Monitoring:
 
     def run(self, submission_date):
         """Execute and generate the operational monitoring ETL for a specific date."""
-        for data_type in DATA_TYPES:
-            # Periodically print so airflow gke operator doesn't think task is dead
-            print(f"Run query for {self.slug} for {data_type} types")
-            self._run_sql_for_data_type(submission_date, data_type)
-        print(f"Create view for {self.slug}")
-        self.bigquery.execute(self._get_view_sql())
+        print(f"Run metrics query for {self.slug}")
+        self.bigquery.execute(self._run_metrics_sql(submission_date))
 
         print("Calculate statistics")
         self.bigquery.execute(self._get_statistics_sql(submission_date))
@@ -68,7 +63,7 @@ class Monitoring:
         self._run_sql_for_alerts(submission_date)
         return True
 
-    def _run_sql_for_data_type(self, submission_date: datetime, data_type: str):
+    def _run_metrics_sql(self, submission_date: datetime):
         """Generate and execute the ETL for a specific data type."""
         try:
             self._check_runnable(submission_date)
@@ -77,10 +72,10 @@ class Monitoring:
             return
 
         date_partition = str(submission_date).replace("-", "").split(" ")[0]
-        destination_table = f"{self.normalized_slug}_{data_type}${date_partition}"
+        destination_table = f"{self.normalized_slug}${date_partition}"
 
         self.bigquery.execute(
-            self._get_data_type_sql(submission_date=submission_date, data_type=data_type),
+            self._get_metrics_sql(submission_date=submission_date),
             destination_table,
             clustering=["build_id"],
             time_partitioning="submission_date",
@@ -95,27 +90,18 @@ class Monitoring:
         sql = template.render(**render_kwargs)
         return sql
 
-    def _get_data_type_sql(
-        self, submission_date: datetime, data_type: str, first_run: Optional[bool] = None
+    def _get_metrics_sql(
+        self, submission_date: datetime, first_run: Optional[bool] = None
     ) -> str:
         """Return SQL for data_type ETL."""
         probes = self.config.probes
-        probes = [probe for probe in probes if probe.metric.type == data_type]
 
         if len(probes) == 0:
             # There are no probes for this data source + data type combo
             logger.warning(
-                f"No probes for data type {data_type} configured for {self.slug}.",
+                f"No metrics configured for {self.slug}.",
                 extra={"experiment": self.slug},
             )
-
-        # todo:
-        # xaxis metadata to be used to decide whether the entire table is replaced
-        # Or just a partition.
-        #
-        # Note: there is a subtle design here in which date partitions are replaced
-        # if the data is for a build over build analysis but the entire table is
-        # replaced if it's a submission date analysis.
 
         # group probes that are part of the same dataset
         # necessary for creating the SQL template
@@ -124,13 +110,14 @@ class Monitoring:
             if probe.metric.data_source.name not in metrics_per_dataset:
                 metrics_per_dataset[probe.metric.data_source.name] = [probe.metric]
             else:
-                metrics_per_dataset[probe.metric.data_source.name].append(probe.metric)
+                if probe.metric not in metrics_per_dataset[probe.metric.data_source.name]:
+                    metrics_per_dataset[probe.metric.data_source.name].append(probe.metric)
 
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
             destination_table = (
-                f"{self.project}.{self.dataset}_derived.{self.normalized_slug}_{data_type}"
+                f"{self.project}.{self.dataset}_derived.{self.normalized_slug}"
             )
             first_run = True
             try:
@@ -147,28 +134,13 @@ class Monitoring:
             "dataset": self.dataset,
             "first_run": first_run,
             "dimensions": self.config.dimensions,
-            # "user_count_threshold": USERS_PER_BUILD_THRESHOLDS[
-            #     self.config.project.population.channel
-            # ],
             "metrics_per_dataset": metrics_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
         }
 
-        sql_filename = QUERY_FILENAME.format(data_type)
+        sql_filename = QUERY_FILENAME
         sql = self._render_sql(sql_filename, render_kwargs)
-        return sql
-
-    def _get_view_sql(self) -> str:
-        """Return the SQL to create a BigQuery view."""
-        render_kwargs = {
-            "gcp_project": self.project,
-            "dataset": self.dataset,
-            "config": self.config.project,
-            "normalized_slug": self.normalized_slug,
-            "dimensions": self.config.dimensions,
-        }
-        sql = self._render_sql(VIEW_FILENAME, render_kwargs)
         return sql
 
     def _get_statistics_sql(self, submission_date) -> str:
@@ -179,7 +151,8 @@ class Monitoring:
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "dimensions": self.config.dimensions,
-            "probes": self.config.probes,
+            "summaries": self.config.probes,
+            "submission_date": submission_date,
         }
         sql = self._render_sql(STATISTICS_FILENAME, render_kwargs)
         return sql
@@ -237,11 +210,18 @@ class Monitoring:
         """Validate ETL and configs of opmon project."""
         self._check_runnable()
 
-        for data_type in DATA_TYPES:
-            data_type_sql = self._get_data_type_sql(
-                submission_date=self.config.project.start_date,  # type: ignore
-                data_type=data_type,
-                first_run=True,
-            )
-            dry_run_query(data_type_sql)
-            print(data_type_sql)
+        metrics_sql = self._get_metrics_sql(
+            submission_date=self.config.project.start_date,  # type: ignore
+            first_run=True,
+        )
+        dry_run_query(metrics_sql)
+        # print(data_type_sql)
+
+        statistics_sql = self._get_statistics_sql(
+            submission_date=self.config.project.start_date, # type: ignore
+        )
+        # print(statistics_sql)
+        dry_run_query(statistics_sql)
+
+        # todo: validate alerts
+        # todo: update alerts view/query

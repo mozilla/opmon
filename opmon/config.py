@@ -128,7 +128,7 @@ class ProbeDefinition:
     description: Optional[str] = None
     category: Optional[str] = None
     type: Optional[str] = None
-    statistics: Optional[Dict[str, Dict[str, Any]]] = None
+    statistics: Optional[Dict[str, Dict[str, Any]]] = {"percentile": {}}  # todo: remove default?
 
     def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
         """Create and return a `Probe` instance from this definition."""
@@ -157,12 +157,13 @@ class ProbeDefinition:
 
                 stats_params = copy.deepcopy(params)
 
-                summaries.append(
-                    Summary(
-                        metric=probe,
-                        statistic=statistic.from_dict(stats_params),
+                for stat in statistic.from_dict(stats_params).computation(probe):
+                    summaries.append(
+                        Summary(
+                            metric=probe,
+                            statistic=stat,
+                        )
                     )
-                )
 
         return summaries
 
