@@ -30,7 +30,12 @@ class ExternalConfig:
     def validate(self, experiment: Optional[experimenter.Experiment] = None) -> None:
         """Validate the external config."""
         conf = self.spec.resolve(experiment)
-        Monitoring(project="project", dataset="dataset", slug=self.slug, config=conf).validate()
+        Monitoring(
+            project="moz-fx-data-shared-prod",
+            dataset="operational_monitoring",
+            slug=self.slug,
+            config=conf,
+        ).validate()
 
 
 def entity_from_path(path: Path) -> ExternalConfig:

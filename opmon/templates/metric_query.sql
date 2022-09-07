@@ -5,25 +5,14 @@
 -- for each data source that is used
 -- select the metric values
 {% for data_source, metrics in metrics_per_dataset.items() -%}
-merged_scalars_{{ data_source }} AS (
+merged_metrics_{{ data_source }} AS (
     SELECT
         DATE({{ metrics[0].data_source.submission_date_column }}) AS submission_date,
         {{ config.population.data_source.client_id_column }} AS client_id,
         p.population_build_id AS build_id,
-        ARRAY<
-            STRUCT<
-                name STRING,
-                value FLOAT64
-            >
-        >[
-          {% for metric in metrics -%}
-            (
-                "{{ metric.name }}",
-                CAST({{ metric.select_expression }} AS FLOAT64)
-            )
-            {{ "," if not loop.last else "" }}
-          {% endfor -%}
-        ] AS metrics,
+        {% for metric in metrics -%}
+        {{ metric.select_expression }} AS {{ metric.name }},
+        {% endfor -%}
     FROM
         {{ metrics[0].data_source.from_expression }}
     RIGHT JOIN
@@ -53,7 +42,7 @@ merged_scalars_{{ data_source }} AS (
 {% endfor %}
 
 -- combine the metrics from all the data sources
-joined_scalars AS (
+joined_metrics AS (
   SELECT
     population.submission_date AS submission_date,
     population.client_id AS client_id,
@@ -62,25 +51,23 @@ joined_scalars AS (
       population.{{ dimension.name }} AS {{ dimension.name }},
     {% endfor %}
     population.branch AS branch,
-    ARRAY_CONCAT(
-      {% for data_source, metrics in metrics_per_dataset.items() -%}
-        COALESCE(merged_scalars_{{ data_source }}.metrics, [])
-        {{ "," if not loop.last else "" }}
-      {% endfor -%}
-    ) AS metrics
+    {% for data_source, metrics in metrics_per_dataset.items() -%}
+        {% for metric in metrics -%}
+            {{ metric.name }},
+        {% endfor -%}
+    {% endfor -%}
   FROM population
   {% for data_source, metrics in metrics_per_dataset.items() -%}
-  LEFT JOIN merged_scalars_{{ data_source }}
+  LEFT JOIN merged_metrics_{{ data_source }}
   USING(submission_date, client_id, build_id)
   {% endfor %}
 ),
 
--- unnest the combined metrics so we get
--- the metric values for each client for each date
-flattened_scalars AS (
-    SELECT * EXCEPT(metrics)
-    FROM joined_scalars
-    CROSS JOIN UNNEST(metrics)
+-- normalize histograms and apply filters
+normalized_metrics AS (
+    SELECT
+        *
+    FROM joined_metrics
     {% if not config.population.monitor_entire_population %}
     WHERE branch IN (
         -- If branches are not defined, assume it's a rollout
@@ -98,44 +85,20 @@ flattened_scalars AS (
 )
 {% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
-    submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions -%}
-        {{ dimension.name }},
-    {% endfor %}
-    branch,
-    name,
-    value
+    *
 FROM
-    flattened_scalars
+    normalized_metrics
 {% else -%}
 -- if data is aggregated by build ID, then aggregate data with previous runs
 SELECT
-    DATE('{{ submission_date }}') AS submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions -%}
-        {{ dimension.name }},
-    {% endfor %}
-    branch,
-    name,
-    value
-FROM flattened_scalars _current
+    *
+FROM normalized_metrics _current
 WHERE 
     PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) >= DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
 UNION ALL
 SELECT
-    DATE('{{ submission_date }}') AS submission_date,
-    client_id,
-    build_id,
-    {% for dimension in dimensions -%}
-        {{ dimension.name }},
-    {% endfor %}
-    branch,
-    name,
-    value
-FROM flattened_scalars _prev
+    SELECT * REPLACE (DATE('{{ submission_date }}') AS submission_date)
+FROM normalized_metrics _prev
 WHERE 
     PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) < DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
     AND submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)

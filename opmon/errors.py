@@ -31,3 +31,11 @@ class ConfigurationException(OpmonException):
     def __init__(self, slug, message="Project has been incorrectly configured."):
         """Initialize exception."""
         super().__init__(f"{slug} -> {message}")
+
+
+class StatisticNotImplementedForTypeException(OpmonException):
+    """Exception thrown when statistic is not implemented for metric type."""
+
+    def __init__(self, slug, message="Statistic not implemented for metric type."):
+        """Initialize exception."""
+        super().__init__(f"{slug} -> {message}")
