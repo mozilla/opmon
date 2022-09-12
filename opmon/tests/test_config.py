@@ -37,8 +37,8 @@ class TestConfig:
         assert spec.probes.definitions["test"].select_expression == "SELECT 1"
         assert spec.data_sources.definitions["foo"].from_expression == "test"
         conf = spec.resolve()
-        assert conf.probes[0].name == "test"
-        assert conf.probes[0].data_source.name == "foo"
+        assert conf.probes[0].metric.name == "test"
+        assert conf.probes[0].metric.data_source.name == "foo"
 
     def test_duplicate_probes_are_okay(self, experiments):
         config_str = dedent(
@@ -58,7 +58,7 @@ class TestConfig:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         cfg = spec.resolve()
-        assert len(cfg.probes) == 1
+        assert len(cfg.probes) == 3  # multiple parameters, one entry for each
 
     def test_data_source_definition(self, experiments):
         config_str = dedent(
@@ -84,12 +84,12 @@ class TestConfig:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         cfg = spec.resolve()
-        test = [p for p in cfg.probes if p.name == "test"][0]
-        test2 = [p for p in cfg.probes if p.name == "test2"][0]
-        assert test.data_source.name == "eggs"
-        assert "camelot" in test.data_source.from_expression
-        assert test2.data_source.name == "silly_knight"
-        assert "france" in test2.data_source.from_expression
+        test = [p for p in cfg.probes if p.metric.name == "test"][0]
+        test2 = [p for p in cfg.probes if p.metric.name == "test2"][0]
+        assert test.metric.data_source.name == "eggs"
+        assert "camelot" in test.metric.data_source.from_expression
+        assert test2.metric.data_source.name == "silly_knight"
+        assert "france" in test2.metric.data_source.from_expression
 
     def test_merge(self, experiments):
         """Test merging configs"""
@@ -137,12 +137,12 @@ class TestConfig:
         cfg = spec.resolve()
 
         assert cfg.project.name == "foo"
-        test = [p for p in cfg.probes if p.name == "test"][0]
-        test2 = [p for p in cfg.probes if p.name == "test2"][0]
-        assert test.select_expression == "SELECT 'd'"
-        assert test.data_source.name == "foo"
-        assert test.data_source.from_expression == "bar"
-        assert test2.select_expression == "SELECT 2"
+        test = [p for p in cfg.probes if p.metric.name == "test"][0]
+        test2 = [p for p in cfg.probes if p.metric.name == "test2"][0]
+        assert test.metric.select_expression == "SELECT 'd'"
+        assert test.metric.data_source.name == "foo"
+        assert test.metric.data_source.from_expression == "bar"
+        assert test2.metric.select_expression == "SELECT 2"
 
     def test_unknown_probe_failure(self, experiments):
         config_str = dedent(
@@ -344,7 +344,7 @@ class TestConfig:
             [alerts.test]
             type = "threshold"
             min = [1, 2]
-            percentiles = [1, 2]
+            parameters = [1, 2]
             max = [1]
             probes = []
             """

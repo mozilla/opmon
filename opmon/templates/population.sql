@@ -2,7 +2,11 @@ WITH population AS (
     SELECT
         DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
         {{ config.population.data_source.client_id_column }} AS client_id,
+        {% if config.xaxis.value == "submission_date" %}
+        NULL AS build_id,
+        {% else %}
         {{ config.population.data_source.build_id_column }} AS build_id,
+        {% endif %}
         {% for dimension in dimensions -%}
           CAST({{ dimension.select_expression }} AS STRING) AS {{ dimension.name }},
         {% endfor -%}

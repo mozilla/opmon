@@ -1,6 +1,6 @@
 """OpMon."""
 import enum
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from opmon.config import Summary
@@ -89,8 +89,9 @@ class Alert:
     probes: List["Summary"]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
-    percentiles: List[int] = []
+    parameters: Optional[List[Any]] = []
     min: Optional[List[int]] = None
     max: Optional[List[int]] = None
     window_size: Optional[int] = None
     max_relative_change: Optional[float] = None
+    statistics: Optional[List[str]] = None

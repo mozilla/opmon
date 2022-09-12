@@ -91,7 +91,7 @@ class TestMonitoring:
             monitoring._check_runnable(current_date=datetime(2022, 1, 2, tzinfo=pytz.utc)) is True
         )
 
-    def test_get_data_type_sql_no_probes(self):
+    def test_get_metrics_sql_no_probes(self):
         config_str = dedent(
             """
             [project]
@@ -103,11 +103,11 @@ class TestMonitoring:
             project="test", dataset="test", slug="test-foo", config=spec.resolve()
         )
 
-        assert "population" in monitoring._get_data_type_sql(
-            submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
+        assert "population" in monitoring._get_metrics_sql(
+            submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc)
         )
 
-    def test_get_data_type_sql(self):
+    def test_get_metrics_sql(self):
         config_str = dedent(
             """
             [project]
@@ -134,8 +134,6 @@ class TestMonitoring:
             project="test", dataset="test", slug="test-foo", config=spec.resolve()
         )
 
-        assert "SELECT 1" in monitoring._get_data_type_sql(
-            submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc), data_type="scalar"
+        assert "SELECT 1" in monitoring._get_metrics_sql(
+            submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc)
         )
-
-        assert "test" in monitoring._get_view_sql()

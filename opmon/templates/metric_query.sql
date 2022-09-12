@@ -85,21 +85,14 @@ normalized_metrics AS (
 )
 {% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
-    *
+    * 
 FROM
     normalized_metrics
 {% else -%}
--- if data is aggregated by build ID, then aggregate data with previous runs
+-- if data is aggregated by build ID, then store metrics for most recent build_ids
 SELECT
-    *
+    * REPLACE(DATE('{{ submission_date }}') AS submission_date)
 FROM normalized_metrics _current
 WHERE 
     PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) >= DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
-UNION ALL
-SELECT
-    SELECT * REPLACE (DATE('{{ submission_date }}') AS submission_date)
-FROM normalized_metrics _prev
-WHERE 
-    PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) < DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
-    AND submission_date = DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 1 DAY)
 {% endif -%}
