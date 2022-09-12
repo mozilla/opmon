@@ -1,20 +1,11 @@
 import re
 from abc import ABC
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import attr
 
 from opmon import Probe
 from opmon.errors import StatisticNotImplementedForTypeException
-
-
-@attr.s(auto_attribs=True)
-class StatisticComputation:
-    point: str
-    name: str
-    lower: Optional[str] = None
-    upper: Optional[str] = None
-    parameter: Optional[str] = None
 
 
 @attr.s(auto_attribs=True)
@@ -34,22 +25,22 @@ class Statistic(ABC):
         name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", cls.__name__)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
-    def computation(self, metric: Probe) -> List[StatisticComputation]:
+    def compute(self, metric: Probe) -> str:
         if metric.type == "scalar":
-            return self._scalar_computation(metric)
+            return self._scalar_compute(metric)
         elif metric.type == "histogram":
-            return self._histogram_computation(metric)
+            return self._histogram_compute(metric)
         else:
             raise StatisticNotImplementedForTypeException(
                 f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
             )
 
-    def _scalar_computation(self, metric: Probe) -> List[StatisticComputation]:
+    def _scalar_compute(self, metric: Probe) -> str:
         raise StatisticNotImplementedForTypeException(
             f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
         )
 
-    def _histogram_computation(self, metric: Probe) -> List[StatisticComputation]:
+    def _histogram_compute(self, metric: Probe) -> str:
         raise StatisticNotImplementedForTypeException(
             f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
         )
@@ -61,308 +52,130 @@ class Statistic(ABC):
 
 
 class Count(Statistic):
-    def _scalar_computation(self, metric: Probe):
-        return [
-            StatisticComputation(
-                point=f"COUNT({metric.name})",
-                name=self.name(),
+    def _scalar_compute(self, metric: Probe):
+        return f"""ARRAY<STRUCT<
+                metric STRING,
+                statistic STRING,
+                point FLOAT64,
+                lower FLOAT64,
+                upper FLOAT64,
+                parameter STRING
+            >>[
+            STRUCT(
+                {metric.name} AS metric,
+                {self.name()} AS statistic,
+                COUNT({metric.name}) AS point,
+                NULL AS lower,
+                NULL AS upper,
+                NULL AS parameter
             )
-        ]
+        ]"""
 
 
 class Sum(Statistic):
-    def _scalar_computation(self, metric: Probe):
-        return [
-            StatisticComputation(
-                point=f"SUM({metric.name})",
-                name=self.name(),
+    def _scalar_compute(self, metric: Probe):
+        return f"""ARRAY<STRUCT<
+                metric STRING,
+                statistic STRING,
+                point FLOAT64,
+                lower FLOAT64,
+                upper FLOAT64,
+                parameter STRING
+            >>[
+            STRUCT(
+                {metric.name} AS metric,
+                {self.name()} AS statistic,
+                SUM({metric.name}) AS point,
+                NULL AS lower,
+                NULL AS upper,
+                NULL AS parameter
             )
-        ]
+        ]"""
 
 
 class Mean(Statistic):
-    def _scalar_computation(self, metric: Probe):
-        return [
-            StatisticComputation(
-                point=f"AVG({metric.name})",
-                name=self.name(),
+    def _scalar_compute(self, metric: Probe):
+        return f"""ARRAY<STRUCT<
+                metric STRING,
+                statistic STRING,
+                point FLOAT64,
+                lower FLOAT64,
+                upper FLOAT64,
+                parameter STRING
+            >>[
+            STRUCT(
+                {metric.name} AS metric,
+                {self.name()} AS statistic,
+                AVG({metric.name}) AS point,
+                NULL AS lower,
+                NULL AS upper,
+                NULL AS parameter
             )
-        ]
+        ]"""
 
 
 class Quantile(Statistic):
     number_of_quantiles: int = 100
     quantile: int = 50
 
-    def _scalar_computation(self, metric: Probe):
-        return [
-            StatisticComputation(
-                point=f"""
-                    APPROX_QUANTILES(
-                        {metric.name},
-                        {self.number_of_quantiles}
-                    )[OFFSET({self.quantile})]
-                """,
-                name=self.name(),
+    def _scalar_compute(self, metric: Probe):
+        return f"""ARRAY<STRUCT<
+                metric STRING,
+                statistic STRING,
+                point FLOAT64,
+                lower FLOAT64,
+                upper FLOAT64,
+                parameter STRING
+            >>[
+            STRUCT(
+                {metric.name} AS metric,
+                {self.name()} AS statistic,
+                APPROX_QUANTILES(
+                    {metric.name},
+                    {self.number_of_quantiles}
+                )[OFFSET({self.quantile})] AS point,
+                NULL AS lower,
+                NULL AS upper,
+                {self.quantile} AS parameter
             )
-        ]
+        ]"""
 
 
 @attr.s(auto_attribs=True)
 class Percentile(Statistic):
     percentiles: List[int] = [50, 90, 99]
 
-    def _scalar_computation(self, metric: Probe):
-        return [
-            StatisticComputation(
-                point=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT<
-                            bucket_count INT64,
-                            sum INT64,
-                            histogram_type INT64,
-                            `range` ARRAY<INT64>,
-                            VALUES
-                            ARRAY<STRUCT<key FLOAT64, value FLOAT64>
-                        >>(1,
-                            COALESCE(
-                                SAFE_CAST(
-                                    SAFE_CAST(
-                                        FORMAT(
-                                            "%.*f",
-                                            2,
-                                            COALESCE(
-                                                mozfun.glam.histogram_bucket_from_value(
-                                                    {metric.name}_buckets,
-                                                    SAFE_CAST({metric.name} AS FLOAT64)
-                                            ), 0) + 0.0001
-                                        )
-                                    AS FLOAT64)
-                                AS INT64),
-                            0),
-                            1,
-                            [
-                                0,
+    def _scalar_compute(self, metric: Probe):
+        return f"""
+            jackknife_percentile_ci(
+                {self.percentiles},
+                STRUCT(
+                    histogram_normalized_sum(
+                        ARRAY_AGG(
+                            STRUCT<key FLOAT64, value FLOAT64>(
                                 COALESCE(
-                                    SAFE_CAST(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ), 0
-                                                ) + 0.0001
-                                            )
-                                        AS FLOAT64)
-                                    AS INT64),
-                                0)
-                            ],
-                            [
-                                STRUCT<key FLOAT64, value FLOAT64>(
-                                    COALESCE(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ),
-                                                0) + 0.0001
-                                            ) AS FLOAT64
-                                        ), 0.0
-                                    ), 1
-                                )
-                            ]
-                        )
-                    ).percentile
-                """,
-                lower=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT<
-                            bucket_count INT64,
-                            sum INT64,
-                            histogram_type INT64,
-                            `range` ARRAY<INT64>,
-                            VALUES
-                            ARRAY<STRUCT<key FLOAT64, value FLOAT64>
-                        >>(1,
-                            COALESCE(
-                                SAFE_CAST(
-                                    SAFE_CAST(
-                                        FORMAT(
-                                            "%.*f",
-                                            2,
-                                            COALESCE(
-                                                mozfun.glam.histogram_bucket_from_value(
-                                                    {metric.name}_buckets,
-                                                    SAFE_CAST({metric.name} AS FLOAT64)
-                                            ), 0) + 0.0001
-                                        )
-                                    AS FLOAT64)
-                                AS INT64),
-                            0),
-                            1,
-                            [
-                                0,
-                                COALESCE(
-                                    SAFE_CAST(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ), 0
-                                                ) + 0.0001
-                                            )
-                                        AS FLOAT64)
-                                    AS INT64),
-                                0)
-                            ],
-                            [
-                                STRUCT<key FLOAT64, value FLOAT64>(
-                                    COALESCE(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ),
-                                                0) + 0.0001
-                                            ) AS FLOAT64
-                                        ), 0.0
-                                    ), 1
-                                )
-                            ]
-                        )
-                    ).low
-                """,
-                upper=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT<
-                            bucket_count INT64,
-                            sum INT64,
-                            histogram_type INT64,
-                            `range` ARRAY<INT64>,
-                            VALUES
-                            ARRAY<STRUCT<key FLOAT64, value FLOAT64>
-                        >>(1,
-                            COALESCE(
-                                SAFE_CAST(
-                                    SAFE_CAST(
-                                        FORMAT(
-                                            "%.*f",
-                                            2,
-                                            COALESCE(
-                                                mozfun.glam.histogram_bucket_from_value(
-                                                    {metric.name}_buckets,
-                                                    SAFE_CAST({metric.name} AS FLOAT64)
-                                            ), 0) + 0.0001
-                                        )
-                                    AS FLOAT64)
-                                AS INT64),
-                            0),
-                            1,
-                            [
-                                0,
-                                COALESCE(
-                                    SAFE_CAST(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ), 0
-                                                ) + 0.0001
-                                            )
-                                        AS FLOAT64)
-                                    AS INT64),
-                                0)
-                            ],
-                            [
-                                STRUCT<key FLOAT64, value FLOAT64>(
-                                    COALESCE(
-                                        SAFE_CAST(
-                                            FORMAT(
-                                                "%.*f",
-                                                2,
-                                                COALESCE(
-                                                    mozfun.glam.histogram_bucket_from_value(
-                                                        {metric.name}_buckets,
-                                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                                    ),
-                                                0) + 0.0001
-                                            ) AS FLOAT64
-                                        ), 0.0
-                                    ), 1
-                                )
-                            ]
-                        )
-                    ).high
-                """,
-                name=self.name(),
-                parameter=str(percentile),
+                                    mozfun.glam.histogram_bucket_from_value(
+                                        {metric.name}_buckets,
+                                        SAFE_CAST({metric.name} AS FLOAT64)
+                                    ), 0.0
+                                ), 1.0
+                            )
+                        ), 1.0
+                    )
+                ),
+                "{metric.name}"
             )
-            for percentile in self.percentiles
-        ]
+        """
 
-    def _histogram_computation(self, metric: Probe) -> List[StatisticComputation]:
-        return [
-            StatisticComputation(
-                point=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT(
-                            histogram_normalized_sum(
-                                mozfun.hist.merge(
-                                    ARRAY_AGG({metric.name} IGNORE NULLS)
-                                ).values, 1.0
-                            )
-                        )
-                    ).percentile
-                """,
-                lower=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT(
-                            histogram_normalized_sum(
-                                mozfun.hist.merge(
-                                    ARRAY_AGG({metric.name} IGNORE NULLS)
-                                ).values, 1.0
-                            )
-                        )
-                    ).low
-                """,
-                upper=f"""
-                    `moz-fx-data-shared-prod`.udf_js.jackknife_percentile_ci(
-                        {percentile},
-                        STRUCT(
-                            histogram_normalized_sum(
-                                mozfun.hist.merge(
-                                    ARRAY_AGG({metric.name} IGNORE NULLS)
-                                ).values, 1.0
-                            )
-                        )
-                    ).high
-                """,
-                name=self.name(),
-                parameter=str(percentile),
+    def _histogram_compute(self, metric: Probe):
+        return f"""
+            jackknife_percentile_ci(
+                {self.percentiles},
+                STRUCT(
+                    histogram_normalized_sum(
+                        ARRAY_CONCAT_AGG({metric.name}.values), 1.0
+                    )
+                ),
+                "{metric.name}"
             )
-            for percentile in self.percentiles
-        ]
+        """

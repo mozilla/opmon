@@ -127,7 +127,7 @@ class ProbeDefinition:
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     category: Optional[str] = None
-    type: Optional[str] = None
+    type: Optional[str] = "scalar"
     statistics: Optional[Dict[str, Dict[str, Any]]] = {"percentile": {}}  # todo: remove default?
 
     def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
@@ -143,7 +143,7 @@ class ProbeDefinition:
                     friendly_name=self.friendly_name,
                     description=self.description,
                     category=self.category,
-                    type=self.type,
+                    type=self.type or "scalar",
                 )
 
                 found = False
@@ -156,14 +156,12 @@ class ProbeDefinition:
                     raise ValueError(f"Statistic '{statistic_name}' does not exist.")
 
                 stats_params = copy.deepcopy(params)
-
-                for stat in statistic.from_dict(stats_params).computation(probe):
-                    summaries.append(
-                        Summary(
-                            metric=probe,
-                            statistic=stat,
-                        )
+                summaries.append(
+                    Summary(
+                        metric=probe,
+                        statistic=statistic.from_dict(stats_params),
                     )
+                )
 
         return summaries
 
@@ -288,11 +286,12 @@ class AlertDefinition:
     probes: List[ProbeReference]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
-    percentiles: List[int] = []
+    parameters: Optional[List[Any]] = None
     min: Optional[List[int]] = None
     max: Optional[List[int]] = None
     window_size: Optional[int] = None
     max_relative_change: Optional[float] = None
+    statistics: Optional[List[str]] = None
 
     def __attrs_post_init__(self):
         """Validate that the right parameters have been set depending on the alert type."""
@@ -304,14 +303,14 @@ class AlertDefinition:
                 raise ValueError(
                     "Either 'max' or 'min' needs to be set when defining a threshold alert"
                 )
-            if self.min and len(self.min) != len(self.percentiles):
+            if self.min and self.parameters and len(self.min) != len(self.parameters):
                 raise ValueError(
-                    "Number of 'min' thresholds not matching number of percentiles to monitor. "
+                    "Number of 'min' thresholds not matching number of parameters to monitor. "
                     + "A 'min' threshold needs to be specified for each percentile."
                 )
-            if self.max and len(self.max) != len(self.percentiles):
+            if self.max and self.parameters and len(self.max) != len(self.parameters):
                 raise ValueError(
-                    "Number of 'max' thresholds not matching number of percentiles to monitor. "
+                    "Number of 'max' thresholds not matching number of parameters to monitor. "
                     + "A 'max' threshold needs to be specified for each percentile."
                 )
         elif self.type == AlertType.AVG_DIFF:
@@ -337,17 +336,34 @@ class AlertDefinition:
             else:
                 raise ValueError(f"No definition for probe {probe_ref}.")
 
+        statistics = None
+        if self.statistics:
+            statistics = []
+            for stats_ref in {stat for stat in self.statistics}:
+                found = False
+                for statistic in Statistic.__subclasses__():
+                    if statistic.name() == stats_ref:
+                        found = True
+                        statistics.append(stats_ref)
+                        break
+
+                if not found:
+                    raise ValueError(
+                        f"Statistic '{stats_ref}' does not exist in alert '{self.name}'"
+                    )
+
         return Alert(
             name=self.name,
             type=self.type,
             probes=probes,
             friendly_name=self.friendly_name,
             description=self.description,
-            percentiles=self.percentiles,
+            parameters=self.parameters,
             min=self.min,
             max=self.max,
             window_size=self.window_size,
             max_relative_change=self.max_relative_change,
+            statistics=statistics,
         )
 
 

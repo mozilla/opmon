@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import attr
 from jinja2 import Environment, FileSystemLoader
 
-from . import AlertType, Channel, errors
+from . import AlertType, errors
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
 from .dryrun import dry_run_query
@@ -18,17 +18,13 @@ from .utils import bq_normalize_name
 
 PATH = Path(os.path.dirname(__file__))
 
-QUERY_FILENAME = "metric_query.sql"
-ALERTS_FILENAME = "alerts_view.sql"
-STATISTICS_FILENAME = "statistics.sql"
+METRIC_QUERY_FILENAME = "metric_query.sql"
+METRIC_VIEW_FILENAME = "metric_view.sql"
+ALERTS_FILENAME = "alerts_query.sql"
+STATISTICS_QUERY_FILENAME = "statistics_query.sql"
+STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
-
-# See https://github.com/mozilla/glam/issues/1575#issuecomment-946880387
-# for reference of where these numbers come from.
-# USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 375, Channel.BETA: 9000, Channel.RELEASE: 625000}
-# todo: adjust thresholds
-USERS_PER_BUILD_THRESHOLDS = {Channel.NIGHTLY: 1, Channel.BETA: 1, Channel.RELEASE: 1}
 
 
 @attr.s(auto_attribs=True)
@@ -54,12 +50,18 @@ class Monitoring:
     def run(self, submission_date):
         """Execute and generate the operational monitoring ETL for a specific date."""
         print(f"Run metrics query for {self.slug}")
-        self.bigquery.execute(self._run_metrics_sql(submission_date))
+        self._run_metrics_sql(submission_date)
+
+        print(f"Create metrics view for {self.slug}")
+        self.bigquery.execute(self._get_metric_view_sql())
 
         print("Calculate statistics")
-        self.bigquery.execute(self._get_statistics_sql(submission_date))
+        self._run_statistics_sql(submission_date)
 
-        print(f"Create alerts view for {self.slug}")
+        print(f"Create statistics view for {self.slug}")
+        self.bigquery.execute(self._get_statistics_view_sql())
+
+        print(f"Create alerts data for {self.slug}")
         self._run_sql_for_alerts(submission_date)
         return True
 
@@ -90,9 +92,7 @@ class Monitoring:
         sql = template.render(**render_kwargs)
         return sql
 
-    def _get_metrics_sql(
-        self, submission_date: datetime, first_run: Optional[bool] = None
-    ) -> str:
+    def _get_metrics_sql(self, submission_date: datetime, first_run: Optional[bool] = None) -> str:
         """Return SQL for data_type ETL."""
         probes = self.config.probes
 
@@ -116,9 +116,7 @@ class Monitoring:
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
-            destination_table = (
-                f"{self.project}.{self.dataset}_derived.{self.normalized_slug}"
-            )
+            destination_table = f"{self.project}.{self.dataset}_derived.{self.normalized_slug}"
             first_run = True
             try:
                 self.bigquery.client.get_table(destination_table)
@@ -139,9 +137,32 @@ class Monitoring:
             "normalized_slug": self.normalized_slug,
         }
 
-        sql_filename = QUERY_FILENAME
+        sql_filename = METRIC_QUERY_FILENAME
         sql = self._render_sql(sql_filename, render_kwargs)
         return sql
+
+    def _get_metric_view_sql(self) -> str:
+        """Return the SQL to create a BigQuery view."""
+        render_kwargs = {
+            "gcp_project": self.project,
+            "dataset": self.dataset,
+            "config": self.config.project,
+            "normalized_slug": self.normalized_slug,
+        }
+        sql = self._render_sql(METRIC_VIEW_FILENAME, render_kwargs)
+        return sql
+
+    def _run_statistics_sql(self, submission_date):
+        date_partition = str(submission_date).replace("-", "").split(" ")[0]
+        destination_table = f"{self.normalized_slug}_statistics${date_partition}"
+
+        self.bigquery.execute(
+            self._get_statistics_sql(submission_date=submission_date),
+            destination_table,
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            dataset=f"{self.dataset}_derived",
+        )
 
     def _get_statistics_sql(self, submission_date) -> str:
         """Return the SQL to run the statistics."""
@@ -154,7 +175,18 @@ class Monitoring:
             "summaries": self.config.probes,
             "submission_date": submission_date,
         }
-        sql = self._render_sql(STATISTICS_FILENAME, render_kwargs)
+        sql = self._render_sql(STATISTICS_QUERY_FILENAME, render_kwargs)
+        return sql
+
+    def _get_statistics_view_sql(self) -> str:
+        """Return the SQL to create a BigQuery view."""
+        render_kwargs = {
+            "gcp_project": self.project,
+            "dataset": self.dataset,
+            "config": self.config.project,
+            "normalized_slug": self.normalized_slug,
+        }
+        sql = self._render_sql(STATISTICS_VIEW_FILENAME, render_kwargs)
         return sql
 
     def _check_runnable(self, current_date: Optional[datetime] = None) -> bool:
@@ -174,25 +206,14 @@ class Monitoring:
 
         return True
 
-    def _run_sql_for_alerts(self, submission_date) -> None:
+    def _get_sql_for_alerts(self, submission_date) -> str:
         """Get the alerts view SQL."""
-        try:
-            self._check_runnable(submission_date)
-        except Exception as e:
-            print(f"Failed to run opmon project: {e}")
-            return
-
         alerts: Dict[str, Any] = {}
-        total_alerts = 0
         for alert_type in AlertType:
             alerts[alert_type.value] = []
 
         for alert in self.config.alerts:
             alerts[alert.type.value].append(alert)
-            total_alerts += 1
-
-        if total_alerts <= 0:
-            return
 
         render_kwargs = {
             "gcp_project": self.project,
@@ -201,10 +222,38 @@ class Monitoring:
             "normalized_slug": self.normalized_slug,
             "dimensions": self.config.dimensions,
             "alerts": alerts,
+            "submission_date": submission_date,
         }
 
         sql = self._render_sql(ALERTS_FILENAME, render_kwargs)
-        self.bigquery.execute(sql)
+        return sql
+
+    def _run_sql_for_alerts(self, submission_date) -> None:
+        try:
+            self._check_runnable(submission_date)
+        except Exception as e:
+            print(f"Failed to run opmon project: {e}")
+            return
+
+        total_alerts = 0
+
+        for _ in self.config.alerts:
+            total_alerts += 1
+
+        if total_alerts <= 0:
+            print(f"No alerts configured for {self.normalized_slug}")
+            return
+
+        date_partition = str(submission_date).replace("-", "").split(" ")[0]
+        destination_table = f"{self.normalized_slug}_alerts${date_partition}"
+
+        self.bigquery.execute(
+            self._get_sql_for_alerts(submission_date=submission_date),
+            destination_table,
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            dataset=f"{self.dataset}_derived",
+        )
 
     def validate(self) -> None:
         """Validate ETL and configs of opmon project."""
@@ -215,13 +264,46 @@ class Monitoring:
             first_run=True,
         )
         dry_run_query(metrics_sql)
-        # print(data_type_sql)
+
+        dummy_probes = {}
+        for summary in self.config.probes:
+            if summary.metric.name not in dummy_probes:
+                dummy_probes[summary.metric.name] = "1"
+                if summary.metric.type == "histogram":
+                    dummy_probes[
+                        summary.metric.name
+                    ] = """
+                        STRUCT(
+                            3 AS bucket_count,
+                            4 AS histogram_type,
+                            12 AS `sum`,
+                            [1, 12] AS `range`,
+                            [STRUCT(0 AS key, 12 AS value)] AS `values`
+                        )
+                    """
+
+        metrics_table_dummy = f"""
+            (
+                SELECT
+                    CURRENT_DATE() AS submission_date,
+                    1 AS client_id,
+                    NULL AS build_id,
+                    {",".join([f"1 AS {d.name}" for d in self.config.dimensions])}
+                    {"," if len(self.config.dimensions) > 0 else ""}
+                    "foo" AS branch,
+                    {",".join([f"{d} AS {probe}" for probe, d in dummy_probes.items()])}
+            )
+        """
 
         statistics_sql = self._get_statistics_sql(
-            submission_date=self.config.project.start_date, # type: ignore
+            submission_date=self.config.project.start_date,  # type: ignore
         )
-        # print(statistics_sql)
+        statistics_sql = statistics_sql.replace(
+            f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
+        )
+        statistics_sql = statistics_sql.replace(
+            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}`", metrics_table_dummy
+        )
         dry_run_query(statistics_sql)
 
         # todo: validate alerts
-        # todo: update alerts view/query

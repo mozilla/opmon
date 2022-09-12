@@ -1,8 +1,7 @@
 CREATE TEMPORARY FUNCTION histogram_normalized_sum(
-  arrs ARRAY<STRUCT<key INT64, value INT64>>,
+  arrs ANY TYPE,
   weight FLOAT64
-)
-RETURNS ARRAY<STRUCT<key INT64, value FLOAT64>> AS (
+) AS (
   -- Input: one histogram for a single client.
   -- Returns the normalized sum of the input maps.
   -- It returns the total_count[k] / SUM(total_count)
@@ -25,12 +24,12 @@ RETURNS ARRAY<STRUCT<key INT64, value FLOAT64>> AS (
     )
     SELECT
       ARRAY_AGG(
-        STRUCT<key INT64, value FLOAT64>(
-          k,
-          COALESCE(SAFE_DIVIDE(1.0 * v, total_count), 0) * weight
+        STRUCT<key FLOAT64, value FLOAT64>(
+          SAFE_CAST(k AS FLOAT64),
+          SAFE_CAST(COALESCE(SAFE_DIVIDE(1.0 * v, total_count), 0) AS FLOAT64) * weight
         )
         ORDER BY
-          SAFE_CAST(k AS INT64)
+          SAFE_CAST(k AS FLOAT64)
       )
     FROM
       summed_counts
