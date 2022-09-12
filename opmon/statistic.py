@@ -1,3 +1,5 @@
+"""Implementations of custom statistics that can be referenced in metric configs."""
+
 import re
 from abc import ABC
 from typing import Any, Dict, List
@@ -26,6 +28,18 @@ class Statistic(ABC):
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
     def compute(self, metric: Probe) -> str:
+        """
+        Return the statistic computation as SQL.
+
+        The SQL needs to return ARRAY<STRUCT<
+            metric STRING,
+            statistic STRING,
+            point FLOAT64,
+            lower FLOAT64,
+            upper FLOAT64,
+            parameter STRING
+        >>
+        """
         if metric.type == "scalar":
             return self._scalar_compute(metric)
         elif metric.type == "histogram":
@@ -52,6 +66,8 @@ class Statistic(ABC):
 
 
 class Count(Statistic):
+    """Count statistic."""
+
     def _scalar_compute(self, metric: Probe):
         return f"""ARRAY<STRUCT<
                 metric STRING,
@@ -73,6 +89,8 @@ class Count(Statistic):
 
 
 class Sum(Statistic):
+    """Sum statistic."""
+
     def _scalar_compute(self, metric: Probe):
         return f"""ARRAY<STRUCT<
                 metric STRING,
@@ -94,6 +112,8 @@ class Sum(Statistic):
 
 
 class Mean(Statistic):
+    """Mean statistic."""
+
     def _scalar_compute(self, metric: Probe):
         return f"""ARRAY<STRUCT<
                 metric STRING,
@@ -115,6 +135,8 @@ class Mean(Statistic):
 
 
 class Quantile(Statistic):
+    """Quantile statistic."""
+
     number_of_quantiles: int = 100
     quantile: int = 50
 
@@ -143,6 +165,8 @@ class Quantile(Statistic):
 
 @attr.s(auto_attribs=True)
 class Percentile(Statistic):
+    """Percentile with confidence interval statistic."""
+
     percentiles: List[int] = [50, 90, 99]
 
     def _scalar_compute(self, metric: Probe):

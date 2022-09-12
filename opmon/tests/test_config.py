@@ -58,7 +58,7 @@ class TestConfig:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         cfg = spec.resolve()
-        assert len(cfg.probes) == 3  # multiple parameters, one entry for each
+        assert len(cfg.probes) == 1
 
     def test_data_source_definition(self, experiments):
         config_str = dedent(

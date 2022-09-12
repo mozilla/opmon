@@ -1,6 +1,6 @@
 """OpMon."""
 import enum
-from typing import List, Optional, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, List, Optional
 
 if TYPE_CHECKING:
     from opmon.config import Summary
