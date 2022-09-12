@@ -263,6 +263,7 @@ class Monitoring:
             submission_date=self.config.project.start_date,  # type: ignore
             first_run=True,
         )
+        print(f"Dry run metrics SQL for {self.normalized_slug}")
         dry_run_query(metrics_sql)
 
         dummy_probes = {}
@@ -304,6 +305,36 @@ class Monitoring:
         statistics_sql = statistics_sql.replace(
             f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}`", metrics_table_dummy
         )
+        print(f"Dry run statistics SQL for {self.normalized_slug}")
         dry_run_query(statistics_sql)
 
-        # todo: validate alerts
+        total_alerts = 0
+        for _ in self.config.alerts:
+            total_alerts += 1
+
+        if total_alerts > 0:
+            statistics_table_dummy = f"""
+                (
+                    SELECT
+                        CURRENT_DATE() AS submission_date,
+                        NULL AS build_id,
+                        "test" AS metric,
+                        "test" AS statistic,
+                        "disabled" AS branch,
+                        {",".join([f"1 AS {d.name}" for d in self.config.dimensions])}
+                        {"," if len(self.config.dimensions) > 0 else ""}
+                        1.2 AS point,
+                        NULL AS lower,
+                        NULL AS upper,
+                        "" AS parameter
+                )
+            """
+            alerts_sql = self._get_sql_for_alerts(
+                submission_date=self.config.project.start_date,  # type: ignore
+            )
+            alerts_sql = alerts_sql.replace(
+                f"`{self.project}.{self.dataset}.{self.normalized_slug}_statistics`",
+                statistics_table_dummy,
+            )
+            print(f"Dry run alerts SQL for {self.normalized_slug}")
+            dry_run_query(alerts_sql)

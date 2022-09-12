@@ -56,13 +56,13 @@ ci_overlaps AS (
     measured_values.metric = ref.metric AND
     measured_values.statistic = ref.statistic
   WHERE 
-    submission_date = DATE('{{ submission_date }}') AND
+    measured_values.submission_date = DATE('{{ submission_date }}') AND
     ref.branch = "{{ config.reference_branch }}"
     {% for alert in alerts['ci_overlap'] %}
         {{ "AND (" if loop.first else "" }}
         {% for probe in alert.probes %}
             (
-                measured_values.metric = '{{ probe.name }}' 
+                measured_values.metric = '{{ probe.metric.name }}' 
                 {% if alerts.statistics %}
                 AND (measured_values.statistic IN {{ alerts.statistics }})
                 {% endif %}
@@ -137,9 +137,9 @@ hist_diffs_{{ hist_diff_alert.name }} AS (
                 ASC ROWS BETWEEN {{ hist_diff_alert.window_size }} PRECEDING AND CURRENT ROW)
         ) > {{ hist_diff_alert.max_relative_change }} AS diff
     FROM measured_values
-    WHERE measured_values.probe IN (
+    WHERE measured_values.metric IN (
         {% for probe in hist_diff_alert.probes %}
-        '{{ probe.name }}'
+        '{{ probe.metric.name }}'
         {{ "," if not loop.last else "" }}
         {% endfor %}
     )
@@ -188,14 +188,21 @@ SELECT
     {% for dimension in dimensions -%}
         measured_values.{{ dimension.name }},
     {% endfor -%}
-    thresholds.parameters AS parameter,
+    thresholds.parameter AS parameter,
     CASE
         WHEN COALESCE(measured_values.lower, measured_values.point) > thresholds.max THEN "Value above threshold"
         WHEN COALESCE(measured_values.upper, measured_values.point) < thresholds.min THEN "Value below threshold"
     END AS message
 FROM measured_values
 INNER JOIN
-    UNNEST([
+    UNNEST(
+        ARRAY<STRUCT<
+            metric STRING,
+            statistic STRING,
+            parameter STRING,
+            max FLOAT64,
+            min FLOAT64
+        >>[
         STRUCT(
             "" AS metric,
             "" AS statistic,
@@ -206,69 +213,75 @@ INNER JOIN
         {{ "," if alerts['threshold']|length > 0 else "" }}
         {% for alert in alerts['threshold'] %}
             {% for probe in alert.probes %}
-                {% if alert.parameter %}
+                {% if alert.parameters %}
                 {% for parameter in alert.parameters %}
+                    {% for statistic in (alert.statistics if alert.statistics else [None]) %}
                     STRUCT(
-                        '{{ probe.name }}' AS metric,
-                        {% if alert.statistics %}
-                        {{ alert.statistics }} AS statistics,
+                        '{{ probe.metric.name }}' AS metric
+                        {% if statistic %}
+                        , '{{ statistic }}' AS statistic
                         {% else %}
-                        NULL AS statistics,
+                        , NULL AS statistic
                         {% endif %}
-                        {{ parameter }} AS parameter,
-                        {% if alert.max == None %}
-                            NULL AS max,
+                        , '{{ parameter }}' AS parameter
+                        {% if alert.max %}
+                            , {{ alert.max[loop.index - 1] }} AS max
                         {% else %}
-                            {{ alert.max[loop.index - 1] }} AS max,
+                            , NULL AS max
                         {% endif %}
-                        {% if alert.min == None %}
-                            NULL AS min
+                        {% if alert.min %}
+                            , {{ alert.min[loop.index - 1] }} AS min
                         {% else %}
-                            {{ alert.min[loop.index - 1] }} AS min
+                            , NULL AS min
                         {% endif %}
                     )
                     {{ "," if not loop.last else "" }}
+                    {% endfor %}
+                    {{ "," if not loop.last else "" }}
                 {% endfor%}
                 {% else %}
+                    {% for statistic in (alert.statistics if alert.statistics else [None]) %}
                     STRUCT(
-                        '{{ probe.name }}' AS metric,
-                        {% if alert.statistics %}
-                        {{ alert.statistics }} AS statistics,
+                        '{{ probe.metric.name }}' AS metric
+                        {% if statistic %}
+                        , '{{ statistic }}' AS statistic
                         {% else %}
-                        NULL AS statistics,
+                        , NULL AS statistic
                         {% endif %}
-                        NULL AS parameter,
-                        {% if alert.max == None %}
-                            NULL AS max,
+                        , NULL AS parameter
+                        {% if alert.max %}
+                            , {{ alert.max[0] }} AS max
                         {% else %}
-                            {{ alert.max[loop.index - 1] }} AS max,
+                            , NULL AS max
                         {% endif %}
-                        {% if alert.min == None %}
-                            NULL AS min
+                        {% if alert.min %}
+                            , {{ alert.min[0] }} AS min
                         {% else %}
-                            {{ alert.min[loop.index - 1] }} AS min
+                            , NULL AS min
                         {% endif %}
                     )
+                    {{ "," if not loop.last else "" }}
+                    {% endfor %}
                 {% endif %}
                 {{ "," if not loop.last else "" }}
             {% endfor %}
             {{ "," if not loop.last else "" }}
         {% endfor %}
-    ]) thresholds
+    ]) AS thresholds
 ON
     measured_values.metric = thresholds.metric AND
-    measured_values.statistic IN thresholds.statistics
+    (thresholds.statistic IS NULL OR measured_values.statistic = thresholds.statistic)
 WHERE
     (COALESCE(measured_values.lower, measured_values.point) > thresholds.max AND 
      (thresholds.parameter IS NULL OR thresholds.parameter = measured_values.parameter) OR
-     udf_js.jackknife_parameter_ci(thresholds.parameter, measured_values.values).high < thresholds.min)
+     COALESCE(measured_values.upper, measured_values.point) < thresholds.min)
 
 -- checks for differences in CI
 UNION ALL
 SELECT
   submission_date,
   build_id,
-  probe,
+  metric,
   statistic,
   branch,
   {% for dimension in dimensions -%}
@@ -284,7 +297,7 @@ UNION ALL
 SELECT 
     submission_date,
     build_id,
-    probe,
+    metric,
     statistic,
     branch,
     {% for dimension in dimensions -%}
