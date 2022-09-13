@@ -78,8 +78,8 @@ class Count(Statistic):
                 parameter STRING
             >>[
             STRUCT(
-                {metric.name} AS metric,
-                {self.name()} AS statistic,
+                "{metric.name}" AS metric,
+                "{self.name()}" AS statistic,
                 COUNT({metric.name}) AS point,
                 NULL AS lower,
                 NULL AS upper,
@@ -101,8 +101,8 @@ class Sum(Statistic):
                 parameter STRING
             >>[
             STRUCT(
-                {metric.name} AS metric,
-                {self.name()} AS statistic,
+                "{metric.name}" AS metric,
+                "{self.name()}" AS statistic,
                 SUM({metric.name}) AS point,
                 NULL AS lower,
                 NULL AS upper,
@@ -124,8 +124,8 @@ class Mean(Statistic):
                 parameter STRING
             >>[
             STRUCT(
-                {metric.name} AS metric,
-                {self.name()} AS statistic,
+                "{metric.name}" AS metric,
+                "{self.name()}" AS statistic,
                 AVG({metric.name}) AS point,
                 NULL AS lower,
                 NULL AS upper,
@@ -150,8 +150,8 @@ class Quantile(Statistic):
                 parameter STRING
             >>[
             STRUCT(
-                {metric.name} AS metric,
-                {self.name()} AS statistic,
+                "{metric.name}" AS metric,
+                "{self.name()}" AS statistic,
                 APPROX_QUANTILES(
                     {metric.name},
                     {self.number_of_quantiles}
@@ -175,16 +175,18 @@ class Percentile(Statistic):
                 {self.percentiles},
                 STRUCT(
                     histogram_normalized_sum(
-                        ARRAY_AGG(
-                            STRUCT<key FLOAT64, value FLOAT64>(
-                                COALESCE(
-                                    mozfun.glam.histogram_bucket_from_value(
-                                        {metric.name}_buckets,
-                                        SAFE_CAST({metric.name} AS FLOAT64)
-                                    ), 0.0
-                                ), 1.0
+                        [STRUCT<values ARRAY<STRUCT<key FLOAT64, value FLOAT64>>>(
+                            ARRAY_AGG(
+                                STRUCT<key FLOAT64, value FLOAT64>(
+                                    COALESCE(
+                                        mozfun.glam.histogram_bucket_from_value(
+                                            {metric.name}_buckets,
+                                            SAFE_CAST({metric.name} AS FLOAT64)
+                                        ), 0.0
+                                    ), 1.0
+                                ) IGNORE NULLS
                             )
-                        ), 1.0
+                        )], 1.0
                     )
                 ),
                 "{metric.name}"
@@ -197,7 +199,7 @@ class Percentile(Statistic):
                 {self.percentiles},
                 STRUCT(
                     histogram_normalized_sum(
-                        ARRAY_CONCAT_AGG({metric.name}.values), 1.0
+                        ARRAY_CONCAT_AGG({metric.name}), 1.0
                     )
                 ),
                 "{metric.name}"

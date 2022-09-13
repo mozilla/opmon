@@ -238,7 +238,14 @@ def _run(
     help="Experimenter or Normandy slug associated with the project to backfill the analysis for",
     required=True,
 )
-def backfill(project_id, dataset_id, start_date, end_date, slug):
+@click.option(
+    "--config_file",
+    "--config-file",
+    help="Custom local config file",
+    required=False,
+    type=click.Path(exists=True),
+)
+def backfill(project_id, dataset_id, start_date, end_date, slug, config_file):
     """Backfill a specific project."""
     external_configs = ExternalConfigCollection.from_github_repo()
     platform_definitions = external_configs.definitions
@@ -246,7 +253,9 @@ def backfill(project_id, dataset_id, start_date, end_date, slug):
 
     # get and resolve configs for projects
     config = None
-    for external_config in external_configs.configs:
+    for external_config in (
+        [entity_from_path(Path(config_file))] if config_file else external_configs.configs
+    ):
         if external_config.slug != slug:
             continue
 
