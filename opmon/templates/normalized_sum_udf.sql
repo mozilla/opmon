@@ -11,14 +11,16 @@ CREATE TEMPORARY FUNCTION histogram_normalized_sum(
       SELECT
         sum(a.value) AS total_count
       FROM
-        UNNEST(arrs) AS a
+        UNNEST(arrs) AS arr,
+        UNNEST(arr.values) AS a
     ),
     summed_counts AS (
       SELECT
         a.key AS k,
         SUM(a.value) AS v
       FROM
-        UNNEST(arrs) AS a
+        UNNEST(arrs) AS arr,
+        UNNEST(arr.values) AS a
       GROUP BY
         a.key
     )

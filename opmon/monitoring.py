@@ -1,5 +1,6 @@
 """Generate and run the Operational Monitoring Queries."""
 
+import itertools
 import os
 from asyncio.log import logger
 from datetime import datetime
@@ -7,6 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import attr
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 from jinja2 import Environment, FileSystemLoader
 
 from . import AlertType, errors
@@ -73,16 +76,24 @@ class Monitoring:
             print(f"Failed to run opmon project: {e}")
             return
 
-        date_partition = str(submission_date).replace("-", "").split(" ")[0]
-        destination_table = f"{self.normalized_slug}${date_partition}"
-
-        self.bigquery.execute(
-            self._get_metrics_sql(submission_date=submission_date),
-            destination_table,
-            clustering=["build_id"],
-            time_partitioning="submission_date",
-            dataset=f"{self.dataset}_derived",
-        )
+        try:
+            self.bigquery.client.get_table(f"{self.dataset}_derived.{self.normalized_slug}")
+            date_partition = str(submission_date).replace("-", "").split(" ")[0]
+            destination_table = f"{self.normalized_slug}${date_partition}"
+            self.bigquery.execute(
+                self._get_metrics_sql(submission_date=submission_date),
+                destination_table,
+                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+                dataset=f"{self.dataset}_derived",
+            )
+        except NotFound:
+            self.bigquery.execute(
+                self._get_metrics_sql(submission_date=submission_date),
+                self.normalized_slug,
+                clustering=["build_id"],
+                time_partitioning="submission_date",
+                dataset=f"{self.dataset}_derived",
+            )
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
         """Render and return the SQL from a template."""
@@ -153,16 +164,26 @@ class Monitoring:
         return sql
 
     def _run_statistics_sql(self, submission_date):
-        date_partition = str(submission_date).replace("-", "").split(" ")[0]
-        destination_table = f"{self.normalized_slug}_statistics${date_partition}"
-
-        self.bigquery.execute(
-            self._get_statistics_sql(submission_date=submission_date),
-            destination_table,
-            clustering=["build_id"],
-            time_partitioning="submission_date",
-            dataset=f"{self.dataset}_derived",
-        )
+        try:
+            self.bigquery.client.get_table(
+                f"{self.dataset}_derived.{self.normalized_slug}_statistics"
+            )
+            date_partition = str(submission_date).replace("-", "").split(" ")[0]
+            destination_table = f"{self.normalized_slug}_statistics${date_partition}"
+            self.bigquery.execute(
+                self._get_statistics_sql(submission_date=submission_date),
+                destination_table,
+                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+                dataset=f"{self.dataset}_derived",
+            )
+        except NotFound:
+            self.bigquery.execute(
+                self._get_statistics_sql(submission_date=submission_date),
+                f"{self.normalized_slug}_statistics",
+                clustering=["build_id"],
+                time_partitioning="submission_date",
+                dataset=f"{self.dataset}_derived",
+            )
 
     def _get_statistics_sql(self, submission_date) -> str:
         """Return the SQL to run the statistics."""
@@ -172,6 +193,11 @@ class Monitoring:
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "dimensions": self.config.dimensions,
+            "dimension_permutations": [
+                list(i)
+                for i in itertools.product([True, False], repeat=len(self.config.dimensions))
+                if any(i)
+            ],
             "summaries": self.config.probes,
             "submission_date": submission_date,
         }
@@ -244,16 +270,24 @@ class Monitoring:
             print(f"No alerts configured for {self.normalized_slug}")
             return
 
-        date_partition = str(submission_date).replace("-", "").split(" ")[0]
-        destination_table = f"{self.normalized_slug}_alerts${date_partition}"
-
-        self.bigquery.execute(
-            self._get_sql_for_alerts(submission_date=submission_date),
-            destination_table,
-            clustering=["build_id"],
-            time_partitioning="submission_date",
-            dataset=f"{self.dataset}_derived",
-        )
+        try:
+            self.bigquery.client.get_table(f"{self.dataset}_derived.{self.normalized_slug}_alerts")
+            date_partition = str(submission_date).replace("-", "").split(" ")[0]
+            destination_table = f"{self.normalized_slug}_alerts${date_partition}"
+            self.bigquery.execute(
+                self._get_metrics_sql(submission_date=submission_date),
+                destination_table,
+                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+                dataset=f"{self.dataset}_derived",
+            )
+        except NotFound:
+            self.bigquery.execute(
+                self._get_metrics_sql(submission_date=submission_date),
+                f"{self.normalized_slug}_alerts",
+                clustering=["build_id"],
+                time_partitioning="submission_date",
+                dataset=f"{self.dataset}_derived",
+            )
 
     def validate(self) -> None:
         """Validate ETL and configs of opmon project."""
@@ -274,13 +308,13 @@ class Monitoring:
                     dummy_probes[
                         summary.metric.name
                     ] = """
-                        STRUCT(
+                        [STRUCT(
                             3 AS bucket_count,
                             4 AS histogram_type,
                             12 AS `sum`,
                             [1, 12] AS `range`,
                             [STRUCT(0 AS key, 12 AS value)] AS `values`
-                        )
+                        )]
                     """
 
         metrics_table_dummy = f"""

@@ -9,6 +9,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     start_date DATE,
     end_date DATE,
     group_by_dimension STRING,
+    alerting BOOLEAN,
     compact_visualization BOOLEAN,
 );
 {% endif -%}

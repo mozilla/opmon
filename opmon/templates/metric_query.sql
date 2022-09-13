@@ -59,7 +59,10 @@ joined_metrics AS (
   FROM population
   {% for data_source, metrics in metrics_per_dataset.items() -%}
   LEFT JOIN merged_metrics_{{ data_source }}
-  USING(submission_date, client_id, build_id)
+  ON 
+    merged_metrics_{{ data_source }}.submission_date = population.submission_date AND
+    merged_metrics_{{ data_source }}.client_id = population.client_id AND
+    (population.build_id IS NULL OR merged_metrics_{{ data_source }}.build_id = population.build_id)
   {% endfor %}
 ),
 
@@ -85,7 +88,7 @@ normalized_metrics AS (
 )
 {% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
-    * 
+    *
 FROM
     normalized_metrics
 {% else -%}

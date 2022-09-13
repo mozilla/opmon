@@ -35,7 +35,7 @@ AS
     for (let i = 0; i < normalized.length; i++) {
       acc += normalized[i];
       index = i;
-      if (acc >= percentile.toFixed(2) / 100) {
+      if (acc >= parseFloat(percentile) / 100) {
         break;
       }
     }
@@ -91,6 +91,18 @@ AS
     var results = [];
     for (var i = 0; i < percentiles.length; i++) {
         percentile = percentiles[i];
+        if (!histogram.values || !histogram ) {
+            results.push({
+                "metric": metric,
+                "statistic": "percentile",
+                "lower": null,
+                "upper": null,
+                "point": null,
+                "parameter": percentile,
+            });
+            continue;
+        }
+        
         var fullDataPercentile = parseFloat(computePercentile(percentile, histogram.values));
         var meanErrors = getMeanErrorsPercentile(percentile, histogram, fullDataPercentile);
         var count = histogram.values.reduce((acc, curr) => acc + parseFloat(curr.value), 0);
@@ -103,7 +115,7 @@ AS
             "statistic": "percentile",
             "lower": lo.toFixed(2),
             "upper": hi.toFixed(2),
-            "point": fullDataPercentile,
+            "point": fullDataPercentile.toFixed(2),
             "parameter": percentile,
         });
     }
