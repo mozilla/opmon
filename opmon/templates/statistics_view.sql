@@ -5,7 +5,9 @@ CREATE OR REPLACE VIEW
 AS
 {% if config.xaxis.value == "submission_date" %}
 SELECT 
-    *
+    * REPLACE (
+        SAFE_CAST(parameter AS FLOAT64) AS parameter
+    )
 FROM
     `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics`
 {% else %}
@@ -16,7 +18,9 @@ WITH most_recent_date AS (
         `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics`
 )
 SELECT
-    *
+    * REPLACE (
+        SAFE_CAST(parameter AS FLOAT64) AS parameter
+    )
 FROM 
     `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics`,
     most_recent_date
