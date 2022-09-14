@@ -49,43 +49,44 @@ buckets_by_metric AS (
   FROM log_min_max
 ),
 
+-- todo: support custom dimensions
 -- This generates an 'all' entry for each dimension, combining all values
-with_all_dimensions AS (
-    SELECT
-        * 
-    FROM
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}`
-    {% if dimensions | length > 0 %}
-    WHERE
-    {% for dimension in dimensions -%}
-        {{ dimension.name }} IS NOT NULL
-        {{ "AND" if not loop.last else "" }}
-    {% endfor -%}
-    {% endif %}
-    {% for perm in dimension_permutations %}
-    UNION ALL
-    SELECT
-        * REPLACE(
-            {% for is_all in perm %}
-                {% if is_all %}
-                NULL AS {{ dimensions[loop.index - 1].name }}
-                {% else %}
-                {{ dimensions[loop.index - 1].name }} AS {{ dimensions[loop.index - 1].name }}
-                {% endif %}
-                {{ "," if not loop.last else "" }}
-            {% endfor %}
-        )
-    FROM
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}` AS o
-    WHERE
-        TRUE
-        {% for is_all in perm %}
-            {% if not is_all %}
-            AND o.{{ dimensions[loop.index - 1].name }} IS NOT NULL
-            {% endif %}
-        {% endfor %}
-    {% endfor %}
-),
+-- with_all_dimensions AS (
+--     SELECT
+--         * 
+--     FROM
+--         `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}`
+--     {% if dimensions | length > 0 %}
+--     WHERE
+--     {% for dimension in dimensions -%}
+--         {{ dimension.name }} IS NOT NULL
+--         {{ "AND" if not loop.last else "" }}
+--     {% endfor -%}
+--     {% endif %}
+--     {% for perm in dimension_permutations %}
+--     UNION ALL
+--     SELECT
+--         * REPLACE(
+--             {% for is_all in perm %}
+--                 {% if is_all %}
+--                 NULL AS {{ dimensions[loop.index - 1].name }}
+--                 {% else %}
+--                 {{ dimensions[loop.index - 1].name }} AS {{ dimensions[loop.index - 1].name }}
+--                 {% endif %}
+--                 {{ "," if not loop.last else "" }}
+--             {% endfor %}
+--         )
+--     FROM
+--         `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}` AS o
+--     WHERE
+--         TRUE
+--         {% for is_all in perm %}
+--             {% if not is_all %}
+--             AND o.{{ dimensions[loop.index - 1].name }} IS NOT NULL
+--             {% endif %}
+--         {% endfor %}
+--     {% endfor %}
+-- ),
 
 stats AS (
     SELECT
@@ -102,7 +103,7 @@ stats AS (
             {% endfor %}
         ) AS statistics
     FROM
-        with_all_dimensions
+        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}` 
     CROSS JOIN buckets_by_metric
     WHERE submission_date = DATE("{{ submission_date }}")
     GROUP BY
