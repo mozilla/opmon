@@ -34,7 +34,7 @@ class Channel(enum.Enum):
 
 @attr.s(auto_attribs=True)
 class DataSource:
-    """Represents a table or view, from which Probes may be monitored."""
+    """Represents a table or view, from which Metrics may be monitored."""
 
     name: str
     from_expression: str
@@ -44,8 +44,8 @@ class DataSource:
 
 
 @attr.s(auto_attribs=True)
-class Probe:
-    """Represents a probe to be monitored."""
+class Metric:
+    """Represents a metric to be monitored."""
 
     name: str
     data_source: DataSource
@@ -86,7 +86,7 @@ class Alert:
 
     name: str
     type: AlertType
-    probes: List["Summary"]
+    metrics: List["Summary"]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     parameters: Optional[List[Any]] = []

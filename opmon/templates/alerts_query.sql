@@ -60,9 +60,9 @@ ci_overlaps AS (
     ref.branch = "{{ config.reference_branch }}"
     {% for alert in alerts['ci_overlap'] %}
         {{ "AND (" if loop.first else "" }}
-        {% for probe in alert.probes %}
+        {% for metric in alert.metrics %}
             (
-                measured_values.metric = '{{ probe.metric.name }}' 
+                measured_values.metric = '{{ metric.metric.name }}' 
                 {% if alerts.statistics %}
                 AND (measured_values.statistic IN {{ alerts.statistics }})
                 {% endif %}
@@ -138,8 +138,8 @@ hist_diffs_{{ hist_diff_alert.name }} AS (
         ) > {{ hist_diff_alert.max_relative_change }} AS diff
     FROM measured_values
     WHERE measured_values.metric IN (
-        {% for probe in hist_diff_alert.probes %}
-        '{{ probe.metric.name }}'
+        {% for metric in hist_diff_alert.metrics %}
+        '{{ metric.metric.name }}'
         {{ "," if not loop.last else "" }}
         {% endfor %}
     )
@@ -212,12 +212,12 @@ INNER JOIN
         )
         {{ "," if alerts['threshold']|length > 0 else "" }}
         {% for alert in alerts['threshold'] %}
-            {% for probe in alert.probes %}
+            {% for metric in alert.metrics %}
                 {% if alert.parameters %}
                 {% for parameter in alert.parameters %}
                     {% for statistic in (alert.statistics if alert.statistics else [None]) %}
                     STRUCT(
-                        '{{ probe.metric.name }}' AS metric
+                        '{{ metric.metric.name }}' AS metric
                         {% if statistic %}
                         , '{{ statistic }}' AS statistic
                         {% else %}
@@ -242,7 +242,7 @@ INNER JOIN
                 {% else %}
                     {% for statistic in (alert.statistics if alert.statistics else [None]) %}
                     STRUCT(
-                        '{{ probe.metric.name }}' AS metric
+                        '{{ metric.metric.name }}' AS metric
                         {% if statistic %}
                         , '{{ statistic }}' AS statistic
                         {% else %}

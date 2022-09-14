@@ -52,11 +52,11 @@ class Metadata:
         project_metadata: List[Dict[str, Any]] = []
 
         for slug, config in self.projects:
-            probes = config.probes
-            render_probes = [
-                {"name": probe.metric.name, "agg_type": probe.metric.type}
-                for probe in probes
-                if probe.metric.type
+            metrics = config.metrics
+            render_metrics = [
+                {"name": metric.metric.name, "agg_type": metric.metric.type}
+                for metric in metrics
+                if metric.metric.type
             ]
 
             if (
@@ -71,7 +71,7 @@ class Metadata:
                 {
                     "slug": slug,
                     "dimensions": config.dimensions,
-                    "probes": render_probes,
+                    "metrics": render_metrics,
                     "config": config.project,
                     "alerts": config.alerts,
                 }

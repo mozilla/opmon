@@ -20,10 +20,10 @@ class TestMonitoring:
         config_str = dedent(
             """
             [project]
-            probes = ["test"]
+            metrics = ["test"]
 
-            [probes]
-            [probes.test]
+            [metrics]
+            [metrics.test]
             select_expression = "SELECT 1"
             data_source = "foo"
 
@@ -43,12 +43,12 @@ class TestMonitoring:
         config_str = dedent(
             """
             [project]
-            probes = ["test"]
+            metrics = ["test"]
             start_date = "2022-01-01"
             end_date = "2022-01-01"
 
-            [probes]
-            [probes.test]
+            [metrics]
+            [metrics.test]
             select_expression = "SELECT 1"
             data_source = "foo"
 
@@ -68,12 +68,12 @@ class TestMonitoring:
         config_str = dedent(
             """
             [project]
-            probes = ["test"]
+            metrics = ["test"]
             start_date = "2022-01-01"
             end_date = "2022-02-01"
 
-            [probes]
-            [probes.test]
+            [metrics]
+            [metrics.test]
             select_expression = "SELECT 1"
             data_source = "foo"
 
@@ -91,11 +91,11 @@ class TestMonitoring:
             monitoring._check_runnable(current_date=datetime(2022, 1, 2, tzinfo=pytz.utc)) is True
         )
 
-    def test_get_metrics_sql_no_probes(self):
+    def test_get_metrics_sql_no_metrics(self):
         config_str = dedent(
             """
             [project]
-            probes = []
+            metrics = []
             """
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
@@ -111,15 +111,15 @@ class TestMonitoring:
         config_str = dedent(
             """
             [project]
-            probes = ["test"]
+            metrics = ["test"]
             start_date = "2022-01-01"
             end_date = "2022-02-01"
 
             [project.population]
             channel = "nightly"
 
-            [probes]
-            [probes.test]
+            [metrics]
+            [metrics.test]
             select_expression = "SELECT 1"
             data_source = "foo"
             type = "scalar"

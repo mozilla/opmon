@@ -182,7 +182,7 @@ EXPERIMENTER_FIXTURE_V6 = r"""
   "userFacingName":"",
   "userFacingDescription":" This is an empty CFR A/A experiment. The A/A experiment is being run to test the automation, effectiveness, and accuracy of the rapid experiments platform.\n    The experiment is an internal test, and Firefox users will not see any noticeable change and there will be no user impact.",
   "isEnrollmentPaused":false,
-  "probeSets":[],
+  "metricSets":[],
   "proposedEnrollment":7,
   "bucketConfig": {
     "randomizationUnit":"userId",
@@ -216,7 +216,7 @@ EXPERIMENTER_FIXTURE_V6 = r"""
     "userFacingName":"testing rapido intake 1",
     "userFacingDescription":" This is an empty CFR A/A experiment. The A/A experiment is being run to test the automation, effectiveness, and accuracy of the rapid experiments platform.\n    The experiment is an internal test, and Firefox users will not see any noticeable change and there will be no user impact.",
     "isEnrollmentPaused":false,
-    "probeSets":[
+    "metricSets":[
       "fake_feature"
     ],
     "proposedEnrollment":14,
@@ -288,7 +288,7 @@ FENIX_EXPERIMENT_FIXTURE = """
     "count": 10000,
     "total": 10000
   },
-  "probeSets": [],
+  "metricSets": [],
   "outcomes": [{
     "slug": "default-browser",
     "priority": "primary"

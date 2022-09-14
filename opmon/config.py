@@ -14,8 +14,8 @@ from opmon import (
     Channel,
     DataSource,
     Dimension,
+    Metric,
     MonitoringPeriod,
-    Probe,
 )
 from opmon.experimenter import Experiment
 from opmon.statistic import Statistic
@@ -113,13 +113,13 @@ _converter.register_structure_hook(
 class Summary:
     """Represents a metric with a statistical treatment."""
 
-    metric: "Probe"
+    metric: "Metric"
     statistic: "Statistic"
 
 
 @attr.s(auto_attribs=True)
-class ProbeDefinition:
-    """Describes the interface for defining a probe in configuration."""
+class MetricDefinition:
+    """Describes the interface for defining a metric in configuration."""
 
     name: str  # implicit in configuration
     select_expression: str
@@ -131,12 +131,12 @@ class ProbeDefinition:
     statistics: Optional[Dict[str, Dict[str, Any]]] = {"percentile": {}}  # todo: remove default?
 
     def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
-        """Create and return a `Probe` instance from this definition."""
+        """Create and return a `Metric` instance from this definition."""
         summaries = []
         if self.statistics:
             for statistic_name, params in self.statistics.items():
                 stats_params = copy.deepcopy(params)
-                probe = Probe(
+                metric = Metric(
                     name=self.name,
                     data_source=self.data_source.resolve(spec),
                     select_expression=self.select_expression,
@@ -158,7 +158,7 @@ class ProbeDefinition:
                 stats_params = copy.deepcopy(params)
                 summaries.append(
                     Summary(
-                        metric=probe,
+                        metric=metric,
                         statistic=statistic.from_dict(stats_params),
                     )
                 )
@@ -167,47 +167,47 @@ class ProbeDefinition:
 
 
 @attr.s(auto_attribs=True)
-class ProbesSpec:
-    """Describes the interface for defining custom probe definitions."""
+class MetricsSpec:
+    """Describes the interface for defining custom metric definitions."""
 
-    definitions: Dict[str, ProbeDefinition] = attr.Factory(dict)
+    definitions: Dict[str, MetricDefinition] = attr.Factory(dict)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ProbesSpec":
-        """Create a `ProbesSpec` from a dictionary."""
+    def from_dict(cls, d: dict) -> "MetricsSpec":
+        """Create a `MetricsSpec` from a dictionary."""
         d = dict((k.lower(), v) for k, v in d.items())
 
         definitions = {
-            k: _converter.structure({"name": k, **v}, ProbeDefinition) for k, v in d.items()
+            k: _converter.structure({"name": k, **v}, MetricDefinition) for k, v in d.items()
         }
         return cls(definitions=definitions)
 
-    def merge(self, other: "ProbesSpec"):
+    def merge(self, other: "MetricsSpec"):
         """
-        Merge another probe spec into the current one.
+        Merge another metric spec into the current one.
 
-        The `other` ProbesSpec overwrites existing keys.
+        The `other` MetricsSpec overwrites existing keys.
         """
         self.definitions.update(other.definitions)
 
 
-_converter.register_structure_hook(ProbesSpec, lambda obj, _type: ProbesSpec.from_dict(obj))
+_converter.register_structure_hook(MetricsSpec, lambda obj, _type: MetricsSpec.from_dict(obj))
 
 
 @attr.s(auto_attribs=True)
-class ProbeReference:
-    """Represents a reference to a probe."""
+class MetricReference:
+    """Represents a reference to a metric."""
 
     name: str
 
     def resolve(self, spec: "MonitoringSpec") -> List[Summary]:
         """Return the `DataSource` that this is referencing."""
-        if self.name in spec.probes.definitions:
-            return spec.probes.definitions[self.name].resolve(spec)
-        raise ValueError(f"Could not locate probe {self.name}")
+        if self.name in spec.metrics.definitions:
+            return spec.metrics.definitions[self.name].resolve(spec)
+        raise ValueError(f"Could not locate metric {self.name}")
 
 
-_converter.register_structure_hook(ProbeReference, lambda obj, _type: ProbeReference(name=obj))
+_converter.register_structure_hook(MetricReference, lambda obj, _type: MetricReference(name=obj))
 
 
 @attr.s(auto_attribs=True)
@@ -283,7 +283,7 @@ class AlertDefinition:
 
     name: str  # implicit in configuration
     type: AlertType
-    probes: List[ProbeReference]
+    metrics: List[MetricReference]
     friendly_name: Optional[str] = None
     description: Optional[str] = None
     parameters: Optional[List[Any]] = None
@@ -328,13 +328,13 @@ class AlertDefinition:
 
     def resolve(self, spec: "MonitoringSpec") -> Alert:
         """Create and return a `Alert` from the definition."""
-        # filter to only have probes that actually need to be monitored
-        probes = []
-        for probe_ref in {p.name for p in self.probes}:
-            if probe_ref in spec.probes.definitions:
-                probes += spec.probes.definitions[probe_ref].resolve(spec)
+        # filter to only have metrics that actually need to be monitored
+        metrics = []
+        for metric_ref in {p.name for p in self.metrics}:
+            if metric_ref in spec.metrics.definitions:
+                metrics += spec.metrics.definitions[metric_ref].resolve(spec)
             else:
-                raise ValueError(f"No definition for probe {probe_ref}.")
+                raise ValueError(f"No definition for metric {metric_ref}.")
 
         statistics = None
         if self.statistics:
@@ -355,7 +355,7 @@ class AlertDefinition:
         return Alert(
             name=self.name,
             type=self.type,
-            probes=probes,
+            metrics=metrics,
             friendly_name=self.friendly_name,
             description=self.description,
             parameters=self.parameters,
@@ -392,8 +392,8 @@ class AlertsSpec:
         for alert_name, alert_definition in other.definitions.items():
             if alert_name in self.definitions:
                 for key in attr.fields_dict(type(self.definitions[alert_name])):
-                    if key == "probes":
-                        self.definitions[alert_name].probes += alert_definition.probes
+                    if key == "metrics":
+                        self.definitions[alert_name].metrics += alert_definition.metrics
                     else:
                         setattr(
                             self.definitions[alert_name],
@@ -516,7 +516,7 @@ class ProjectSpec:
     xaxis: Optional[MonitoringPeriod] = None
     start_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
     end_date: Optional[str] = attr.ib(default=None, validator=_validate_yyyy_mm_dd)
-    probes: List[ProbeReference] = attr.Factory(list)
+    metrics: List[MetricReference] = attr.Factory(list)
     alerts: List[AlertReference] = attr.Factory(list)
     reference_branch: Optional[str] = None
     population: PopulationSpec = attr.Factory(PopulationSpec)
@@ -570,8 +570,8 @@ class ProjectSpec:
         for key in attr.fields_dict(type(self)):
             if key == "population":
                 self.population.merge(other.population)
-            elif key == "probes":
-                self.probes += other.probes
+            elif key == "metrics":
+                self.metrics += other.metrics
             elif key == "alerts":
                 self.alerts += other.alerts
             else:
@@ -588,7 +588,7 @@ class MonitoringConfiguration:
     """
 
     project: Optional[ProjectConfiguration] = None
-    probes: List[Summary] = attr.Factory(list)
+    metrics: List[Summary] = attr.Factory(list)
     dimensions: List[Dimension] = attr.Factory(list)
     alerts: List[Alert] = attr.Factory(list)
 
@@ -605,7 +605,7 @@ class MonitoringSpec:
 
     project: ProjectSpec = attr.Factory(ProjectSpec)
     data_sources: DataSourcesSpec = attr.Factory(DataSourcesSpec)
-    probes: ProbesSpec = attr.Factory(ProbesSpec)
+    metrics: MetricsSpec = attr.Factory(MetricsSpec)
     dimensions: DimensionsSpec = attr.Factory(DimensionsSpec)
     alerts: AlertsSpec = attr.Factory(AlertsSpec)
     _resolved: bool = False
@@ -623,13 +623,13 @@ class MonitoringSpec:
 
         self._resolved = True
 
-        # filter to only have probes that actually need to be monitored
-        probes = []
-        for probe_ref in {p.name for p in self.project.probes}:
-            if probe_ref in self.probes.definitions:
-                probes += self.probes.definitions[probe_ref].resolve(self)
+        # filter to only have metrics that actually need to be monitored
+        metrics = []
+        for metric_ref in {p.name for p in self.project.metrics}:
+            if metric_ref in self.metrics.definitions:
+                metrics += self.metrics.definitions[metric_ref].resolve(self)
             else:
-                raise ValueError(f"No definition for probe {probe_ref}.")
+                raise ValueError(f"No definition for metric {metric_ref}.")
 
         # filter to only have dimensions that actually are in use
         dimensions = []
@@ -649,7 +649,7 @@ class MonitoringSpec:
 
         return MonitoringConfiguration(
             project=self.project.resolve(self, experiment) if self.project else None,
-            probes=probes,
+            metrics=metrics,
             dimensions=dimensions,
             alerts=alerts,
         )
@@ -659,6 +659,6 @@ class MonitoringSpec:
         if other:
             self.project.merge(other.project)
             self.data_sources.merge(other.data_sources)
-            self.probes.merge(other.probes)
+            self.metrics.merge(other.metrics)
             self.dimensions.merge(other.dimensions)
             self.alerts.merge(other.alerts)
