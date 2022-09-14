@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import attr
 
-from opmon import Probe
+from opmon import Metric
 from opmon.errors import StatisticNotImplementedForTypeException
 
 
@@ -27,7 +27,7 @@ class Statistic(ABC):
         name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", cls.__name__)
         return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
-    def compute(self, metric: Probe) -> str:
+    def compute(self, metric: Metric) -> str:
         """
         Return the statistic computation as SQL.
 
@@ -49,12 +49,12 @@ class Statistic(ABC):
                 f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
             )
 
-    def _scalar_compute(self, metric: Probe) -> str:
+    def _scalar_compute(self, metric: Metric) -> str:
         raise StatisticNotImplementedForTypeException(
             f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
         )
 
-    def _histogram_compute(self, metric: Probe) -> str:
+    def _histogram_compute(self, metric: Metric) -> str:
         raise StatisticNotImplementedForTypeException(
             f"Statistic {self.name()} not implemented for type {metric.type} ({metric.name})"
         )
@@ -68,7 +68,7 @@ class Statistic(ABC):
 class Count(Statistic):
     """Count statistic."""
 
-    def _scalar_compute(self, metric: Probe):
+    def _scalar_compute(self, metric: Metric):
         return f"""ARRAY<STRUCT<
                 metric STRING,
                 statistic STRING,
@@ -91,7 +91,7 @@ class Count(Statistic):
 class Sum(Statistic):
     """Sum statistic."""
 
-    def _scalar_compute(self, metric: Probe):
+    def _scalar_compute(self, metric: Metric):
         return f"""ARRAY<STRUCT<
                 metric STRING,
                 statistic STRING,
@@ -114,7 +114,7 @@ class Sum(Statistic):
 class Mean(Statistic):
     """Mean statistic."""
 
-    def _scalar_compute(self, metric: Probe):
+    def _scalar_compute(self, metric: Metric):
         return f"""ARRAY<STRUCT<
                 metric STRING,
                 statistic STRING,
@@ -140,7 +140,7 @@ class Quantile(Statistic):
     number_of_quantiles: int = 100
     quantile: int = 50
 
-    def _scalar_compute(self, metric: Probe):
+    def _scalar_compute(self, metric: Metric):
         return f"""ARRAY<STRUCT<
                 metric STRING,
                 statistic STRING,
@@ -169,7 +169,7 @@ class Percentile(Statistic):
 
     percentiles: List[int] = [50, 90, 99]
 
-    def _scalar_compute(self, metric: Probe):
+    def _scalar_compute(self, metric: Metric):
         return f"""
             jackknife_percentile_ci(
                 {self.percentiles},
@@ -193,7 +193,7 @@ class Percentile(Statistic):
             )
         """
 
-    def _histogram_compute(self, metric: Probe):
+    def _histogram_compute(self, metric: Metric):
         return f"""
             jackknife_percentile_ci(
                 {self.percentiles},

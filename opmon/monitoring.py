@@ -105,24 +105,24 @@ class Monitoring:
 
     def _get_metrics_sql(self, submission_date: datetime, first_run: Optional[bool] = None) -> str:
         """Return SQL for data_type ETL."""
-        probes = self.config.probes
+        metrics = self.config.metrics
 
-        if len(probes) == 0:
-            # There are no probes for this data source + data type combo
+        if len(metrics) == 0:
+            # There are no metrics for this data source + data type combo
             logger.warning(
                 f"No metrics configured for {self.slug}.",
                 extra={"experiment": self.slug},
             )
 
-        # group probes that are part of the same dataset
+        # group metrics that are part of the same dataset
         # necessary for creating the SQL template
         metrics_per_dataset = {}
-        for probe in probes:
-            if probe.metric.data_source.name not in metrics_per_dataset:
-                metrics_per_dataset[probe.metric.data_source.name] = [probe.metric]
+        for metric in metrics:
+            if metric.metric.data_source.name not in metrics_per_dataset:
+                metrics_per_dataset[metric.metric.data_source.name] = [metric.metric]
             else:
-                if probe.metric not in metrics_per_dataset[probe.metric.data_source.name]:
-                    metrics_per_dataset[probe.metric.data_source.name].append(probe.metric)
+                if metric.metric not in metrics_per_dataset[metric.metric.data_source.name]:
+                    metrics_per_dataset[metric.metric.data_source.name].append(metric.metric)
 
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
@@ -198,7 +198,7 @@ class Monitoring:
                 for i in itertools.product([True, False], repeat=len(self.config.dimensions))
                 if any(i)
             ],
-            "summaries": self.config.probes,
+            "summaries": self.config.metrics,
             "submission_date": submission_date,
         }
         sql = self._render_sql(STATISTICS_QUERY_FILENAME, render_kwargs)
@@ -300,12 +300,12 @@ class Monitoring:
         print(f"Dry run metrics SQL for {self.normalized_slug}")
         dry_run_query(metrics_sql)
 
-        dummy_probes = {}
-        for summary in self.config.probes:
-            if summary.metric.name not in dummy_probes:
-                dummy_probes[summary.metric.name] = "1"
+        dummy_metrics = {}
+        for summary in self.config.metrics:
+            if summary.metric.name not in dummy_metrics:
+                dummy_metrics[summary.metric.name] = "1"
                 if summary.metric.type == "histogram":
-                    dummy_probes[
+                    dummy_metrics[
                         summary.metric.name
                     ] = """
                         [STRUCT(
@@ -326,7 +326,7 @@ class Monitoring:
                     {",".join([f"1 AS {d.name}" for d in self.config.dimensions])}
                     {"," if len(self.config.dimensions) > 0 else ""}
                     "foo" AS branch,
-                    {",".join([f"{d} AS {probe}" for probe, d in dummy_probes.items()])}
+                    {",".join([f"{d} AS {metric}" for metric, d in dummy_metrics.items()])}
             )
         """
 

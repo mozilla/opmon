@@ -2,7 +2,7 @@
 xaxis = "submission_date"
 start_date = "2022-01-01"
 platform = "firefox_desktop"
-probes = [
+metrics = [
     "content_process_max", 
     "child_process_launch_ms", 
     "content_process_count",
@@ -15,9 +15,9 @@ data_source = "main_nightly"
 channel = "nightly"
 dimensions = ["os"]
 
-[probes]
+[metrics]
 
-[probes.content_process_max]
+[metrics.content_process_max]
 data_source = "main_nightly"
 select_expression = "payload.histograms.content_process_max"
 friendly_name = "Content Process Max"
