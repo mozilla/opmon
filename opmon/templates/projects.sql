@@ -5,7 +5,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     xaxis STRING,
     branches ARRAY<STRING>,
     dimensions ARRAY<STRING>,
-    metrics ARRAY<STRUCT<agg_type STRING, name STRING>>,
+    summaries ARRAY<STRUCT<statistic STRING, metric STRING>>,
     start_date DATE,
     end_date DATE,
     group_by_dimension STRING,
@@ -25,7 +25,7 @@ slug = "{{ project.slug }}"
 ;
 
 INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
-(slug, name, xaxis, branches, dimensions, metrics, start_date, end_date, group_by_dimension, alerting, compact_visualization)
+(slug, name, xaxis, branches, dimensions, summaries, start_date, end_date, group_by_dimension, alerting, compact_visualization)
 VALUES 
 {% for project in projects %}
 (
@@ -51,8 +51,8 @@ VALUES
         {% endfor -%}
     ],
     [
-        {% for metric in project.metrics -%}
-        STRUCT("{{ metric.agg_type }}" AS agg_type, "{{ metric.name }}" AS name)
+        {% for summary in project.summaries -%}
+        STRUCT("{{ summary.metric }}" AS metric, "{{ metric.statistic }}" AS statistic)
         {{ "," if not loop.last else "" }}
         {% endfor %}
     ],
