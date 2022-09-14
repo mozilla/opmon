@@ -4,7 +4,7 @@ WITH measured_values AS (
   -- get all scalar and histogram value for each day; group by metric and branch
   SELECT
     submission_date,
-    PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) AS build_id,
+    build_id,
     branch,
     {% for dimension in dimensions -%}
         {{ dimension.name }},
@@ -180,7 +180,7 @@ hist_diffs AS (
 
 -- checks for thresholds
 SELECT 
-    measured_values.submission_date,
+    DATE("{{ submission_date }}") AS submission_date,
     measured_values.build_id,
     measured_values.metric,
     measured_values.statistic,
@@ -272,6 +272,7 @@ ON
     measured_values.metric = thresholds.metric AND
     (thresholds.statistic IS NULL OR measured_values.statistic = thresholds.statistic)
 WHERE
+    measured_values.submission_date = DATE('{{ submission_date }}') AND
     (COALESCE(measured_values.lower, measured_values.point) > thresholds.max AND 
      (thresholds.parameter IS NULL OR thresholds.parameter = measured_values.parameter) OR
      COALESCE(measured_values.upper, measured_values.point) < thresholds.min)
@@ -279,7 +280,7 @@ WHERE
 -- checks for differences in CI
 UNION ALL
 SELECT
-  submission_date,
+  DATE("{{ submission_date }}") AS submission_date,
   build_id,
   metric,
   statistic,
@@ -295,7 +296,7 @@ WHERE ci_overlap = FALSE
 -- checks for significant changes
 UNION ALL
 SELECT 
-    submission_date,
+    DATE("{{ submission_date }}") AS submission_date,
     build_id,
     metric,
     statistic,

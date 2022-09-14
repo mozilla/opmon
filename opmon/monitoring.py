@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import attr
+from google import cloud
 from google.cloud import bigquery
-from google.cloud.exceptions import NotFound
 from jinja2 import Environment, FileSystemLoader
 
 from . import AlertType, errors
@@ -58,7 +58,7 @@ class Monitoring:
         print(f"Create metrics view for {self.slug}")
         self.bigquery.execute(self._get_metric_view_sql())
 
-        print("Calculate statistics")
+        print(f"Calculate statistics for {self.slug}")
         self._run_statistics_sql(submission_date)
 
         print(f"Create statistics view for {self.slug}")
@@ -86,7 +86,7 @@ class Monitoring:
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.dataset}_derived",
             )
-        except NotFound:
+        except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_metrics_sql(submission_date=submission_date),
                 self.normalized_slug,
@@ -176,7 +176,7 @@ class Monitoring:
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.dataset}_derived",
             )
-        except NotFound:
+        except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_statistics_sql(submission_date=submission_date),
                 f"{self.normalized_slug}_statistics",
@@ -275,12 +275,12 @@ class Monitoring:
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
             destination_table = f"{self.normalized_slug}_alerts${date_partition}"
             self.bigquery.execute(
-                self._get_metrics_sql(submission_date=submission_date),
+                self._get_sql_for_alerts(submission_date=submission_date),
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.dataset}_derived",
             )
-        except NotFound:
+        except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_metrics_sql(submission_date=submission_date),
                 f"{self.normalized_slug}_alerts",

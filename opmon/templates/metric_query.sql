@@ -91,6 +91,10 @@ SELECT
     *
 FROM
     normalized_metrics
+{% if config.xaxis.value == "build_id"%}
+WHERE 
+    PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) >= DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
+{% endif %}
 {% else -%}
 -- if data is aggregated by build ID, then store metrics for most recent build_ids
 SELECT
