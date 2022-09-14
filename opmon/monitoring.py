@@ -23,7 +23,8 @@ PATH = Path(os.path.dirname(__file__))
 
 METRIC_QUERY_FILENAME = "metric_query.sql"
 METRIC_VIEW_FILENAME = "metric_view.sql"
-ALERTS_FILENAME = "alerts_query.sql"
+ALERTS_QUERY_FILENAME = "alerts_query.sql"
+ALERTS_VIEW_FILENAME = "alerts_view.sql"
 STATISTICS_QUERY_FILENAME = "statistics_query.sql"
 STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
@@ -66,6 +67,10 @@ class Monitoring:
 
         print(f"Create alerts data for {self.slug}")
         self._run_sql_for_alerts(submission_date)
+
+        print(f"Create alerts view for {self.slug}")
+        self.bigquery.execute(self._get_alerts_view_sql())
+
         return True
 
     def _run_metrics_sql(self, submission_date: datetime):
@@ -251,7 +256,7 @@ class Monitoring:
             "submission_date": submission_date,
         }
 
-        sql = self._render_sql(ALERTS_FILENAME, render_kwargs)
+        sql = self._render_sql(ALERTS_QUERY_FILENAME, render_kwargs)
         return sql
 
     def _run_sql_for_alerts(self, submission_date) -> None:
@@ -288,6 +293,16 @@ class Monitoring:
                 time_partitioning="submission_date",
                 dataset=f"{self.dataset}_derived",
             )
+
+    def _get_alerts_view_sql(self) -> str:
+        """Return the SQL to create a BigQuery view."""
+        render_kwargs = {
+            "gcp_project": self.project,
+            "dataset": self.dataset,
+            "normalized_slug": self.normalized_slug,
+        }
+        sql = self._render_sql(ALERTS_VIEW_FILENAME, render_kwargs)
+        return sql
 
     def validate(self) -> None:
         """Validate ETL and configs of opmon project."""
