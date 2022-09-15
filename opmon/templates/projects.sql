@@ -1,5 +1,5 @@
 {% if first_run -%}
-CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}` (
+CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     slug STRING,
     name STRING,
     xaxis STRING,
@@ -16,7 +16,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_vers
 
 BEGIN TRANSACTION;
 
-DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}`
+DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}`
 WHERE 
 {% for project in projects %}
 slug = "{{ project.slug }}"
@@ -24,7 +24,7 @@ slug = "{{ project.slug }}"
 {% endfor %}
 ;
 
-INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}` 
+INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
 (slug, name, xaxis, branches, dimensions, summaries, start_date, end_date, group_by_dimension, alerting, compact_visualization)
 VALUES 
 {% for project in projects %}
@@ -52,7 +52,7 @@ VALUES
     ],
     [
         {% for summary in project.summaries -%}
-        STRUCT("{{ summary.metric }}" AS metric, "{{ metric.statistic }}" AS statistic)
+        STRUCT("{{ summary['statistic'] }}" AS statistic, "{{ summary['metric'] }}" AS metric)
         {{ "," if not loop.last else "" }}
         {% endfor %}
     ],

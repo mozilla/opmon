@@ -13,7 +13,6 @@ from opmon.config import MonitoringConfiguration
 PATH = Path(os.path.dirname(__file__))
 PROJECTS_TABLE = "projects_v1"
 PROJECTS_FILENAME = "projects.sql"
-PROJECTS_VERSION = 1
 TEMPLATE_FOLDER = PATH / "templates"
 
 
@@ -40,9 +39,7 @@ class Metadata:
 
     def write(self) -> None:
         """Update the BQ table with project metadata."""
-        destination_table = (
-            f"{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}_v{PROJECTS_VERSION}"
-        )
+        destination_table = f"{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}"
 
         # check if projects metadata table exists; otherwise it needs to be created
         first_run = True
@@ -94,7 +91,7 @@ class Metadata:
         view_query = f"""
             CREATE OR REPLACE VIEW `{self.project}.{self.dataset}.{view_name}` AS (
                 SELECT *
-                FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}_v{PROJECTS_VERSION}`
+                FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}`
             )
         """
 

@@ -66,31 +66,36 @@ class ExternalConfigCollection:
         with TemporaryDirectory() as tmp_dir:
             Repo.clone_from(cls.CONFIG_URL, tmp_dir)
 
-            external_configs = []
+            return cls.from_path(Path(tmp_dir))
 
-            for config_file in tmp_dir.glob("*.toml"):
-                external_configs.append(
-                    ExternalConfig(
-                        config_file.stem,
-                        MonitoringSpec.from_dict(toml.load(config_file)),
-                    )
+    @classmethod
+    def from_path(cls, path: Path) -> "ExternalConfigCollection":
+        """Pull in config files from a local file path."""
+        external_configs = []
+
+        for config_file in path.glob("*.toml"):
+            external_configs.append(
+                ExternalConfig(
+                    config_file.stem,
+                    MonitoringSpec.from_dict(toml.load(config_file)),
                 )
+            )
 
-            definitions = {}
+        definitions = {}
 
-            for definition_file in tmp_dir.glob(f"**/{DEFINITIONS_DIR}/*.toml"):
-                definitions[definition_file.stem] = ExternalConfig(
-                    slug=definition_file.stem,
-                    spec=MonitoringSpec.from_dict(toml.load(definition_file)),
-                )
+        for definition_file in path.glob(f"**/{DEFINITIONS_DIR}/*.toml"):
+            definitions[definition_file.stem] = ExternalConfig(
+                slug=definition_file.stem,
+                spec=MonitoringSpec.from_dict(toml.load(definition_file)),
+            )
 
-            defaults = {}
+        defaults = {}
 
-            for defaults_file in tmp_dir.glob(f"**/{DEFAULTS_DIR}/*.toml"):
-                defaults[defaults_file.stem] = ExternalConfig(
-                    slug=defaults_file.stem,
-                    spec=MonitoringSpec.from_dict(toml.load(defaults_file)),
-                )
+        for defaults_file in path.glob(f"**/{DEFAULTS_DIR}/*.toml"):
+            defaults[defaults_file.stem] = ExternalConfig(
+                slug=defaults_file.stem,
+                spec=MonitoringSpec.from_dict(toml.load(defaults_file)),
+            )
 
         return cls(external_configs, definitions, defaults)
 

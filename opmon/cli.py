@@ -245,9 +245,19 @@ def _run(
     required=False,
     type=click.Path(exists=True),
 )
-def backfill(project_id, dataset_id, start_date, end_date, slug, config_file):
+@click.option(
+    "--config_repo",
+    "--config-repo",
+    help="Custom local config repo",
+    required=False,
+    type=click.Path(exists=True),
+)
+def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, config_repo):
     """Backfill a specific project."""
-    external_configs = ExternalConfigCollection.from_github_repo()
+    if config_repo:
+        external_configs = ExternalConfigCollection.from_path(Path(config_repo))
+    else:
+        external_configs = ExternalConfigCollection.from_github_repo()
     platform_definitions = external_configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
