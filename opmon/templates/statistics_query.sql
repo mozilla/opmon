@@ -103,7 +103,7 @@ stats AS (
             {% endfor %}
         ) AS statistics
     FROM
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}` 
+        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_v{{ table_version }}` 
     CROSS JOIN buckets_by_metric
     WHERE submission_date = DATE("{{ submission_date }}")
     GROUP BY

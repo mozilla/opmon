@@ -1,5 +1,5 @@
 {% if first_run -%}
-CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
+CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}` (
     slug STRING,
     name STRING,
     xaxis STRING,
@@ -16,7 +16,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
 
 BEGIN TRANSACTION;
 
-DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}`
+DELETE FROM `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}`
 WHERE 
 {% for project in projects %}
 slug = "{{ project.slug }}"
@@ -24,7 +24,7 @@ slug = "{{ project.slug }}"
 {% endfor %}
 ;
 
-INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` 
+INSERT `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}_v{{ table_version }}` 
 (slug, name, xaxis, branches, dimensions, summaries, start_date, end_date, group_by_dimension, alerting, compact_visualization)
 VALUES 
 {% for project in projects %}

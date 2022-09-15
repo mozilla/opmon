@@ -29,6 +29,7 @@ STATISTICS_QUERY_FILENAME = "statistics_query.sql"
 STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
+SCHEMA_VERSIONS = {"metric": 1, "statistic": 1, "alert": 1}
 
 
 @attr.s(auto_attribs=True)
@@ -82,9 +83,13 @@ class Monitoring:
             return
 
         try:
-            self.bigquery.client.get_table(f"{self.dataset}_derived.{self.normalized_slug}")
+            self.bigquery.client.get_table(
+                f"{self.dataset}_derived.{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
+            )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = f"{self.normalized_slug}${date_partition}"
+            destination_table = (
+                f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}${date_partition}"
+            )
             self.bigquery.execute(
                 self._get_metrics_sql(submission_date=submission_date),
                 destination_table,
@@ -94,7 +99,7 @@ class Monitoring:
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_metrics_sql(submission_date=submission_date),
-                self.normalized_slug,
+                f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
                 dataset=f"{self.dataset}_derived",
@@ -132,7 +137,10 @@ class Monitoring:
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
-            destination_table = f"{self.project}.{self.dataset}_derived.{self.normalized_slug}"
+            destination_table = (
+                f"{self.project}.{self.dataset}_derived"
+                + f".{self.normalized_slug}_{SCHEMA_VERSIONS['metric']}"
+            )
             first_run = True
             try:
                 self.bigquery.client.get_table(destination_table)
@@ -151,6 +159,7 @@ class Monitoring:
             "metrics_per_dataset": metrics_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
+            "table_version": SCHEMA_VERSIONS["metric"],
         }
 
         sql_filename = METRIC_QUERY_FILENAME
@@ -164,6 +173,7 @@ class Monitoring:
             "dataset": self.dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
+            "table_version": SCHEMA_VERSIONS["metric"],
         }
         sql = self._render_sql(METRIC_VIEW_FILENAME, render_kwargs)
         return sql
@@ -172,9 +182,13 @@ class Monitoring:
         try:
             self.bigquery.client.get_table(
                 f"{self.dataset}_derived.{self.normalized_slug}_statistics"
+                + f"_v{SCHEMA_VERSIONS['statistic']}"
             )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = f"{self.normalized_slug}_statistics${date_partition}"
+            destination_table = (
+                f"{self.normalized_slug}_statistics"
+                + f"_v{SCHEMA_VERSIONS['statistic']}${date_partition}"
+            )
             self.bigquery.execute(
                 self._get_statistics_sql(submission_date=submission_date),
                 destination_table,
@@ -184,7 +198,7 @@ class Monitoring:
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_statistics_sql(submission_date=submission_date),
-                f"{self.normalized_slug}_statistics",
+                f"{self.normalized_slug}_statistics_v{SCHEMA_VERSIONS['statistic']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
                 dataset=f"{self.dataset}_derived",
@@ -205,6 +219,7 @@ class Monitoring:
             ],
             "summaries": self.config.metrics,
             "submission_date": submission_date,
+            "table_version": SCHEMA_VERSIONS["metric"],
         }
         sql = self._render_sql(STATISTICS_QUERY_FILENAME, render_kwargs)
         return sql
@@ -216,6 +231,7 @@ class Monitoring:
             "dataset": self.dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
+            "table_version": SCHEMA_VERSIONS["statistic"],
         }
         sql = self._render_sql(STATISTICS_VIEW_FILENAME, render_kwargs)
         return sql
@@ -276,9 +292,13 @@ class Monitoring:
             return
 
         try:
-            self.bigquery.client.get_table(f"{self.dataset}_derived.{self.normalized_slug}_alerts")
+            self.bigquery.client.get_table(
+                f"{self.dataset}_derived.{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
+            )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = f"{self.normalized_slug}_alerts${date_partition}"
+            destination_table = (
+                f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}${date_partition}"
+            )
             self.bigquery.execute(
                 self._get_sql_for_alerts(submission_date=submission_date),
                 destination_table,
@@ -288,7 +308,7 @@ class Monitoring:
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
                 self._get_metrics_sql(submission_date=submission_date),
-                f"{self.normalized_slug}_alerts",
+                f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
                 dataset=f"{self.dataset}_derived",
@@ -300,6 +320,7 @@ class Monitoring:
             "gcp_project": self.project,
             "dataset": self.dataset,
             "normalized_slug": self.normalized_slug,
+            "table_version": SCHEMA_VERSIONS["alert"],
         }
         sql = self._render_sql(ALERTS_VIEW_FILENAME, render_kwargs)
         return sql
@@ -352,7 +373,9 @@ class Monitoring:
             f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
         )
         statistics_sql = statistics_sql.replace(
-            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}`", metrics_table_dummy
+            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
+            + f"_v{SCHEMA_VERSIONS['statistic']}`",
+            metrics_table_dummy,
         )
         print(f"Dry run statistics SQL for {self.normalized_slug}")
         dry_run_query(statistics_sql)
