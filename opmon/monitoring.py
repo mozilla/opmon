@@ -333,6 +333,9 @@ class Monitoring:
         """Validate ETL and configs of opmon project."""
         self._check_runnable()
 
+        if self.config.project and self.config.project.skip:
+            return
+
         metrics_sql = self._get_metrics_sql(
             submission_date=self.config.project.start_date,  # type: ignore
             first_run=True,
