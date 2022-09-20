@@ -505,6 +505,7 @@ class ProjectConfiguration:
     end_date: Optional[datetime] = None
     population: PopulationConfiguration = attr.Factory(PopulationConfiguration)
     compact_visualization: bool = False
+    skip_default_metrics: bool = False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -521,6 +522,7 @@ class ProjectSpec:
     reference_branch: Optional[str] = None
     population: PopulationSpec = attr.Factory(PopulationSpec)
     compact_visualization: bool = False
+    skip_default_metrics: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProjectSpec":
@@ -559,6 +561,7 @@ class ProjectSpec:
                 else "control"
             ),
             compact_visualization=self.compact_visualization,
+            skip_default_metrics=self.skip_default_metrics,
         )
 
     def merge(self, other: "ProjectSpec") -> None:
