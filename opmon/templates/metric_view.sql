@@ -7,7 +7,7 @@ AS
 SELECT 
     *
 FROM
-    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}`
+    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_v{{ table_version }}`
 {% else %}
 WITH most_recent_date AS (
     SELECT 
