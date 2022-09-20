@@ -203,6 +203,7 @@ class TestConfig:
             [project]
             name = "foo bar"
             end_date = "2022-03-01"
+            skip_default_metrics = true
 
             [project.population]
             boolean_pref = "FALSE"
@@ -221,6 +222,7 @@ class TestConfig:
         assert cfg.project.population.data_source.name == "foo"
         assert cfg.project.population.boolean_pref == "FALSE"
         assert cfg.project.population.branches == ["treatment"]
+        assert cfg.project.skip_default_metrics
         assert len(cfg.dimensions) == 1
 
     def test_group_by_fail(self):
