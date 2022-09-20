@@ -136,7 +136,7 @@ class Monitoring:
         if first_run is None:
             destination_table = (
                 f"{self.project}.{self.dataset}_derived"
-                + f".{self.normalized_slug}_{SCHEMA_VERSIONS['metric']}"
+                + f".{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
             )
             first_run = True
             try:
