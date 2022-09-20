@@ -88,7 +88,7 @@ normalized_metrics AS (
 )
 {% if first_run or config.xaxis.value == "submission_date" -%}
 SELECT
-    *
+    * REPLACE(DATE('{{ submission_date }}') AS submission_date)
 FROM
     normalized_metrics
 {% if config.xaxis.value == "build_id"%}
