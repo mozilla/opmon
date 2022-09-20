@@ -54,6 +54,10 @@ class Monitoring:
 
     def run(self, submission_date):
         """Execute and generate the operational monitoring ETL for a specific date."""
+        if self.config.project.skip:
+            print(f"Skipping {self.slug}")
+            return True
+
         print(f"Run metrics query for {self.slug}")
         self._run_metrics_sql(submission_date)
 

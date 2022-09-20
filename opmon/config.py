@@ -506,6 +506,7 @@ class ProjectConfiguration:
     population: PopulationConfiguration = attr.Factory(PopulationConfiguration)
     compact_visualization: bool = False
     skip_default_metrics: bool = False
+    skip: bool = False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -523,6 +524,7 @@ class ProjectSpec:
     population: PopulationSpec = attr.Factory(PopulationSpec)
     compact_visualization: bool = False
     skip_default_metrics: bool = False
+    skip: bool = False
 
     @classmethod
     def from_dict(cls, d: dict) -> "ProjectSpec":
@@ -562,6 +564,7 @@ class ProjectSpec:
             ),
             compact_visualization=self.compact_visualization,
             skip_default_metrics=self.skip_default_metrics,
+            skip=self.skip,
         )
 
     def merge(self, other: "ProjectSpec") -> None:
