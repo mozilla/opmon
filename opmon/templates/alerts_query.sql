@@ -188,7 +188,7 @@ SELECT
     {% for dimension in dimensions -%}
         measured_values.{{ dimension.name }},
     {% endfor -%}
-    thresholds.parameter AS parameter,
+    SAFE_CAST(thresholds.parameter AS FLOAT64) AS parameter,
     CASE
         WHEN COALESCE(measured_values.lower, measured_values.point) > thresholds.max THEN "Value above threshold"
         WHEN COALESCE(measured_values.upper, measured_values.point) < thresholds.min THEN "Value below threshold"
@@ -274,7 +274,7 @@ ON
 WHERE
     measured_values.submission_date = DATE('{{ submission_date }}') AND
     (COALESCE(measured_values.lower, measured_values.point) > thresholds.max AND 
-     (thresholds.parameter IS NULL OR SAFE_CAST(thresholds.parameter AS STRING) = SAFE_CAST(measured_values.parameter AS STRING)) OR
+     (thresholds.parameter IS NULL OR SAFE_CAST(thresholds.parameter AS FLOAT64) = SAFE_CAST(measured_values.parameter AS FLOAT64)) OR
      COALESCE(measured_values.upper, measured_values.point) < thresholds.min)
 
 -- checks for differences in CI
@@ -288,7 +288,7 @@ SELECT
   {% for dimension in dimensions -%}
     {{ dimension.name }},
   {% endfor -%}
-  SAFE_CAST(parameter AS STRING) AS parameter,
+  SAFE_CAST(parameter AS FLOAT64) AS parameter,
   "Significant difference between branches" AS message
 FROM ci_overlaps
 WHERE ci_overlap = FALSE
@@ -304,7 +304,7 @@ SELECT
     {% for dimension in dimensions -%}
         {{ dimension.name }},
     {% endfor -%}
-    SAFE_CAST(parameter AS STRING) AS parameter,
+    SAFE_CAST(parameter AS FLOAT64) AS parameter,
     "Significant difference to historical data" AS message
 FROM hist_diffs
 WHERE diff = TRUE AND submission_date > DATE_ADD(DATE('{{ config.start_date }}'), INTERVAL window_size DAY)

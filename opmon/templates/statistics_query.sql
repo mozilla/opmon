@@ -47,7 +47,7 @@ buckets_by_metric AS (
         {% endif %}
     {% endfor %}
   FROM log_min_max
-),
+)
 
 -- todo: support custom dimensions
 -- This generates an 'all' entry for each dimension, combining all values
@@ -88,46 +88,26 @@ buckets_by_metric AS (
 --     {% endfor %}
 -- ),
 
-stats AS (
-    SELECT
-        submission_date,
-        build_id,
-        {% for dimension in dimensions -%}
-            {{ dimension.name }},
-        {% endfor -%}
-        branch,
-        ARRAY_CONCAT(
-            {% for summary in summaries %}
-                {{ summary.statistic.compute(summary.metric) }}
-                {{ "," if not loop.last else "" }}
-            {% endfor %}
-        ) AS statistics
-    FROM
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_v{{ table_version }}` 
-    CROSS JOIN buckets_by_metric
-    WHERE submission_date = DATE("{{ submission_date }}")
-    GROUP BY
-        submission_date,
-        build_id,
-        {% for dimension in dimensions -%}
-            {{ dimension.name }},
-        {% endfor -%}
-        branch
-)
 
-SELECT 
+SELECT
     submission_date,
     build_id,
     {% for dimension in dimensions -%}
         {{ dimension.name }},
     {% endfor -%}
     branch,
-    statistic.metric AS metric,
-    statistic.statistic AS statistic,
-    statistic.point AS point,
-    statistic.lower AS lower,
-    statistic.upper AS upper,
-    statistic.parameter AS parameter
-FROM 
-    stats, 
-    UNNEST(statistics) AS statistic
+    {% for summary in summaries %}
+        {{ summary.statistic.compute(summary.metric) }} AS {{ summary.metric.name }}_{{ summary.statistic.name() }}
+        {{ "," if not loop.last else "" }}
+    {% endfor %}
+FROM
+    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_v{{ table_version }}` 
+CROSS JOIN buckets_by_metric
+WHERE submission_date = DATE("{{ submission_date }}")
+GROUP BY
+    submission_date,
+    build_id,
+    {% for dimension in dimensions -%}
+        {{ dimension.name }},
+    {% endfor -%}
+    branch
