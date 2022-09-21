@@ -29,7 +29,7 @@ STATISTICS_QUERY_FILENAME = "statistics_query.sql"
 STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
-SCHEMA_VERSIONS = {"metric": 1, "statistic": 1, "alert": 1}
+SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
 
 
 @attr.s(auto_attribs=True)
@@ -233,6 +233,8 @@ class Monitoring:
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["statistic"],
+            "summaries": self.config.metrics,
+            "dimensions": self.config.dimensions,
         }
         sql = self._render_sql(STATISTICS_VIEW_FILENAME, render_kwargs)
         return sql
@@ -405,7 +407,7 @@ class Monitoring:
                         1.2 AS point,
                         NULL AS lower,
                         NULL AS upper,
-                        "" AS parameter
+                        NULL AS parameter
                 )
             """
             alerts_sql = self._get_sql_for_alerts(
