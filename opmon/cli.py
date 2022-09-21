@@ -187,6 +187,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
         for (k, cfg) in configs
         if (cfg.project.start_date and cfg.project.start_date <= prior_date)
         and (cfg.project.end_date is None or cfg.project.end_date >= prior_date)
+        and not cfg.project.skip
     ]
 
     run = partial(_run, project_id, dataset_id, date)
