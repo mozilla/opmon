@@ -30,6 +30,7 @@ log_min_max AS (
     {% endfor %}
   FROM
     filtered_metrics
+  LIMIT 1
 ),
 
 buckets_by_metric AS (
