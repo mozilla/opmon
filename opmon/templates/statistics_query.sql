@@ -4,6 +4,8 @@
 
 {% include 'jackknife_percentile_ci_udf.sql' %}
 
+{% include 'merge_histogram_values_udf.sql' %}
+
 WITH filtered_metrics AS (
     SELECT *
     FROM `{{ gcp_project }}.{{ dataset }}.{{ normalized_slug }}`
