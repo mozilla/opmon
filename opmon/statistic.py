@@ -173,20 +173,20 @@ class Percentile(Statistic):
         return f"""
             jackknife_percentile_ci(
                 {self.percentiles},
-                STRUCT(
-                    histogram_normalized_sum(
-                        [STRUCT<values ARRAY<STRUCT<key FLOAT64, value FLOAT64>>>(
-                            ARRAY_AGG(
-                                STRUCT<key FLOAT64, value FLOAT64>(
+                merge_histogram_values(
+                    ARRAY_CONCAT_AGG(
+                        histogram_normalized_sum(
+                            [STRUCT<values ARRAY<STRUCT<key FLOAT64, value FLOAT64>>>(
+                                [STRUCT<key FLOAT64, value FLOAT64>(
                                     COALESCE(
                                         mozfun.glam.histogram_bucket_from_value(
                                             {metric.name}_buckets,
                                             SAFE_CAST({metric.name} AS FLOAT64)
                                         ), 0.0
                                     ), 1.0
-                                ) IGNORE NULLS
-                            )
-                        )], 1.0
+                                )]
+                            )], 1.0
+                        )
                     )
                 ),
                 "{metric.name}"
@@ -197,9 +197,9 @@ class Percentile(Statistic):
         return f"""
             jackknife_percentile_ci(
                 {self.percentiles},
-                STRUCT(
-                    histogram_normalized_sum(
-                        ARRAY_CONCAT_AGG({metric.name}), 1.0
+                merge_histogram_values(
+                    ARRAY_CONCAT_AGG(
+                        histogram_normalized_sum({metric.name}, 1.0)
                     )
                 ),
                 "{metric.name}"
