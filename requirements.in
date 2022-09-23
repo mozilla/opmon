@@ -97,7 +97,7 @@ pluggy==1.0.0
     # via pytest
 proto-plus==1.20.3
     # via google-cloud-bigquery
-protobuf==3.19.4
+protobuf==3.19.5
     # via
     #   google-api-core
     #   google-cloud-bigquery
