@@ -54,7 +54,8 @@ ci_overlaps AS (
     measured_values.submission_date = ref.submission_date AND
     measured_values.branch != ref.branch AND
     measured_values.metric = ref.metric AND
-    measured_values.statistic = ref.statistic
+    measured_values.statistic = ref.statistic AND
+    ((measured_values.build_id IS NULL AND ref.build_id IS NULL) OR measured_values.build_id = ref.build_id)
   WHERE 
     measured_values.submission_date = DATE('{{ submission_date }}') AND
     ref.branch = "{{ config.reference_branch }}"
@@ -97,14 +98,15 @@ hist_diffs_{{ hist_diff_alert.name }} AS (
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.metric,
-                    measured_values.statistic
+                    measured_values.statistic,
+                    SAFE_CAST(measured_values.parameter AS STRING)
                 ORDER BY 
                     {% if config.xaxis.value == "submission_date" %}
                     submission_date 
                     {% else %}
                     build_id
                     {% endif %}
-                ASC ROWS BETWEEN {{ hist_diff_alert.window_size }} PRECEDING AND CURRENT ROW) -
+                ASC ROWS BETWEEN {{ hist_diff_alert.window_size - 1 }} PRECEDING AND CURRENT ROW) -
             AVG(measured_values.point) OVER (
                 PARTITION BY 
                     branch, 
@@ -112,14 +114,15 @@ hist_diffs_{{ hist_diff_alert.name }} AS (
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.metric,
-                    measured_values.statistic
+                    measured_values.statistic,
+                    SAFE_CAST(measured_values.parameter AS STRING)
                 ORDER BY 
                     {% if config.xaxis.value == "submission_date" %}
                     submission_date 
                     {% else %}
                     build_id
                     {% endif %}
-                ASC ROWS BETWEEN {{ hist_diff_alert.window_size + hist_diff_alert.window_size }} PRECEDING AND {{ hist_diff_alert.window_size }} PRECEDING)
+                ASC ROWS BETWEEN {{ hist_diff_alert.window_size - 1 + hist_diff_alert.window_size - 1 }} PRECEDING AND {{ hist_diff_alert.window_size - 1 }} PRECEDING)
         ), AVG(measured_values.point) OVER (
                 PARTITION BY 
                     branch, 
@@ -127,14 +130,15 @@ hist_diffs_{{ hist_diff_alert.name }} AS (
                         {{ dimension.name }},
                     {% endfor -%}
                     measured_values.metric,
-                    measured_values.statistic
+                    measured_values.statistic,
+                    SAFE_CAST(measured_values.parameter AS STRING)
                 ORDER BY 
                     {% if config.xaxis.value == "submission_date" %}
                     submission_date 
                     {% else %}
                     build_id
                     {% endif %}
-                ASC ROWS BETWEEN {{ hist_diff_alert.window_size }} PRECEDING AND CURRENT ROW)
+                ASC ROWS BETWEEN {{ hist_diff_alert.window_size - 1 }} PRECEDING AND CURRENT ROW)
         ) > {{ hist_diff_alert.max_relative_change }} AS diff
     FROM measured_values
     WHERE measured_values.metric IN (
@@ -157,9 +161,14 @@ hist_diffs AS (
     {% if alerts['avg_diff']| length > 0 %}
     {% for hist_diff_alert in alerts['avg_diff'] %}
     SELECT 
-        * 
+        *
     FROM 
         hist_diffs_{{ hist_diff_alert.name }}
+    {% if config.xaxis.value == "submission_date" %}
+    WHERE submission_date = DATE("{{ submission_date }}")
+    {% else %}
+    WHERE PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) = DATE("{{ submission_date }}")
+    {% endif %}
     {{ "UNION ALL" if not loop.last else "" }}
     {% endfor %}
     {% else %}
@@ -270,7 +279,7 @@ INNER JOIN
     ]) AS thresholds
 ON
     measured_values.metric = thresholds.metric AND
-    (thresholds.statistic IS NULL OR measured_values.statistic = thresholds.statistic)
+    (thresholds.statistic IS NULL OR measured_values.statistic = thresholds.statistic) 
 WHERE
     measured_values.submission_date = DATE('{{ submission_date }}') AND
     (COALESCE(measured_values.lower, measured_values.point) > thresholds.max AND 
@@ -295,9 +304,9 @@ WHERE ci_overlap = FALSE
 
 -- checks for significant changes
 UNION ALL
-SELECT 
+SELECT DISTINCT
     DATE("{{ submission_date }}") AS submission_date,
-    build_id,
+    SAFE_CAST(build_id AS STRING) AS build_id,
     metric,
     statistic,
     branch,
