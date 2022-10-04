@@ -507,6 +507,7 @@ class ProjectConfiguration:
     compact_visualization: bool = False
     skip_default_metrics: bool = False
     skip: bool = False
+    platform: Optional[str] = None
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -565,6 +566,7 @@ class ProjectSpec:
             compact_visualization=self.compact_visualization,
             skip_default_metrics=self.skip_default_metrics,
             skip=self.skip,
+            platform=self.platform,
         )
 
     def merge(self, other: "ProjectSpec") -> None:

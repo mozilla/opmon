@@ -17,7 +17,11 @@ WITH population AS (
         -- where those with the slug have the feature enabled and those without do not.
         {% if config.population.branches|length > 0 -%}
         mozfun.map.get_key(
+          {% if is_glean_app -%}
+          ping_info.experiments,
+          {% else -%}
           environment.experiments,
+          {% endif -%}
           "{{ slug }}"
         ).branch AS branch,
         {% elif config.population.boolean_pref and config.population.branches is none -%}
@@ -31,7 +35,11 @@ WITH population AS (
         {% else -%}
           CASE WHEN
             mozfun.map.get_key(
+              {% if is_glean_app -%}
+              ping_info.experiments,
+              {% else -%}
               environment.experiments,
+              {% endif -%}
               "{{ slug }}"
             ).branch IS NULL THEN 'disabled'
           ELSE 'enabled'

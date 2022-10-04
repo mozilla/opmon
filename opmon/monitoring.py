@@ -12,6 +12,8 @@ from google import cloud
 from google.cloud import bigquery
 from jinja2 import Environment, FileSystemLoader
 
+from opmon.platform import PLATFORM_CONFIGS
+
 from . import AlertType, errors
 from .bigquery_client import BigQueryClient
 from .config import MonitoringConfiguration
@@ -161,6 +163,11 @@ class Monitoring:
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["metric"],
+            "is_glean_app": PLATFORM_CONFIGS[
+                self.config.project.platform or "firefox_desktop"
+                if self.config.project
+                else "firefox_desktop"
+            ].is_glean_app,
         }
 
         sql_filename = METRIC_QUERY_FILENAME

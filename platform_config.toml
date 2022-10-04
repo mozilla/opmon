@@ -1,0 +1,5 @@
+[platform]
+
+# Desktop platforms configuration
+[platform.firefox_desktop]
+is_glean_app = false
