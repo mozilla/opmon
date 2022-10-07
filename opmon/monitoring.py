@@ -383,7 +383,7 @@ class Monitoring:
         )
         statistics_sql = statistics_sql.replace(
             f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
-            + f"_v{SCHEMA_VERSIONS['statistic']}`",
+            + f"_v{SCHEMA_VERSIONS['metric']}`",
             metrics_table_dummy,
         )
         print(f"Dry run statistics SQL for {self.normalized_slug}")
