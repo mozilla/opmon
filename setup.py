@@ -62,6 +62,7 @@ setup(
         "pytz",
         "requests",
         "toml",
+        "jetstream-config-parser",
     ],
     include_package_data=True,
     tests_require=test_dependencies,
@@ -75,5 +76,5 @@ setup(
     """,
     # This project does not issue releases, so this number is not meaningful
     # and should not need to change.
-    version="2022.3.0",
+    version="2022.10.0",
 )
