@@ -4,10 +4,13 @@ from textwrap import dedent
 import pytest
 import pytz
 import toml
+from jetstream_config_parser.monitoring import (
+    Monitoring,
+    MonitoringConfiguration,
+    MonitoringSpec,
+)
 
 from opmon import errors
-from opmon.config import MonitoringConfiguration, MonitoringSpec
-from opmon.monitoring import Monitoring
 
 
 class TestMonitoring:

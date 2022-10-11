@@ -11,15 +11,16 @@ from typing import Iterable, Tuple
 
 import click
 import pytz
-
-from opmon.config import MonitoringConfiguration
-from opmon.dryrun import DryRunFailedError
-from opmon.experimenter import ExperimentCollection
-from opmon.external_config import (
+from jetstream_config_parser.config import (
     DEFAULTS_DIR,
-    ExternalConfigCollection,
+    DEFINITIONS_DIR,
     entity_from_path,
 )
+from jetstream_config_parser.monitoring import MonitoringConfiguration
+
+from opmon.config import ConfigLoader
+from opmon.dryrun import DryRunFailedError
+from opmon.experimenter import ExperimentCollection
 from opmon.logging import LogConfiguration
 from opmon.metadata import Metadata
 from opmon.monitoring import Monitoring
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
-DEFINITIONS_DIR = "definitions"
+DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"
+METRIC_HUB_REPO = "https://github.com/mozilla/jetstream-config"
 
 
 class ClickDate(click.ParamType):
@@ -69,6 +71,20 @@ config_file_option = click.option(
 
 parallelism_option = click.option(
     "--parallelism", "-p", help="Number of processes to run monitoring analysis", default=8
+)
+
+config_repos_option = click.option(
+    "--config_repos",
+    "--config-repos",
+    help="URLs to public repos with configs",
+    multiple=True,
+    default=[METRIC_HUB_REPO, DEFAULT_CONFIG_REPO],
+)
+private_config_repos_option = click.option(
+    "--private_config_repos",
+    "--private-config-repos",
+    help="URLs to private repos with configs",
+    multiple=True,
 )
 
 
@@ -121,15 +137,19 @@ def cli(
 )
 @slug_option
 @parallelism_option
-def run(project_id, dataset_id, date, slug, parallelism):
+@config_repos_option
+@private_config_repos_option
+def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_config_repos):
     """Execute the monitoring ETL for a specific date."""
-    external_configs = ExternalConfigCollection.from_github_repo()
-    platform_definitions = external_configs.definitions
+    ConfigLoader.with_configs_from(config_repos).with_configs_from(
+        private_config_repos, is_private=True
+    )
+    platform_definitions = ConfigLoader.configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     # get and resolve configs for projects
     configs = []
-    for external_config in external_configs.configs:
+    for external_config in ConfigLoader.configs.configs:
         if slug:
             if external_config.slug != slug:
                 continue
@@ -137,7 +157,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
         experiment = experiments.with_slug(external_config.slug)
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
 
-        if platform not in external_configs.definitions:
+        if platform not in ConfigLoader.configs.definitions:
             logger.exception(
                 str(f"Invalid platform {platform}"),
                 exc_info=None,
@@ -146,14 +166,14 @@ def run(project_id, dataset_id, date, slug, parallelism):
             continue
 
         # resolve config by applying platform and custom config specs
-        platform_definitions = external_configs.definitions[platform]
+        platform_definitions = ConfigLoader.configs.definitions[platform]
         spec = copy.deepcopy(platform_definitions.spec)
 
         if not external_config.spec.project.skip_default_metrics:
-            spec.merge(external_configs.default_spec_for_platform(platform))
+            spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
 
             if experiment and experiment.is_rollout:
-                spec.merge(external_configs.default_spec_for_type("rollout"))
+                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
         spec.merge(external_config.spec)
 
         configs.append((external_config.slug, spec.resolve(experiment)))
@@ -165,7 +185,7 @@ def run(project_id, dataset_id, date, slug, parallelism):
             if not any([c[0] == rollout.normandy_slug for c in configs]):
                 platform = rollout.app_name or DEFAULT_PLATFORM
 
-                if platform not in external_configs.definitions:
+                if platform not in ConfigLoader.configs.definitions:
                     logger.exception(
                         str(f"Invalid platform {platform}"),
                         exc_info=None,
@@ -174,10 +194,10 @@ def run(project_id, dataset_id, date, slug, parallelism):
                     continue
 
                 # resolve config by applying platform and custom config specs
-                platform_definitions = external_configs.definitions[platform]
+                platform_definitions = ConfigLoader.configs.definitions[platform]
                 spec = copy.deepcopy(platform_definitions.spec)
-                spec.merge(external_configs.default_spec_for_platform(platform))
-                spec.merge(external_configs.default_spec_for_type("rollout"))
+                spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
+                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
                 configs.append((rollout.normandy_slug, spec.resolve(rollout)))
 
     # filter out projects that have finished or not started
@@ -248,26 +268,29 @@ def _run(
     required=False,
     type=click.Path(exists=True),
 )
-@click.option(
-    "--config_repo",
-    "--config-repo",
-    help="Custom local config repo",
-    required=False,
-    type=click.Path(exists=True),
-)
-def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, config_repo):
+@config_repos_option
+@private_config_repos_option
+def backfill(
+    project_id,
+    dataset_id,
+    start_date,
+    end_date,
+    slug,
+    config_file,
+    config_repos,
+    private_config_repos,
+):
     """Backfill a specific project."""
-    if config_repo:
-        external_configs = ExternalConfigCollection.from_path(Path(config_repo))
-    else:
-        external_configs = ExternalConfigCollection.from_github_repo()
-    platform_definitions = external_configs.definitions
+    ConfigLoader.with_configs_from(config_repos).with_configs_from(
+        private_config_repos, is_private=True
+    )
+    platform_definitions = ConfigLoader.configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     # get and resolve configs for projects
     config = None
     for external_config in (
-        [entity_from_path(Path(config_file))] if config_file else external_configs.configs
+        [entity_from_path(Path(config_file))] if config_file else ConfigLoader.configs.configs
     ):
         if external_config.slug != slug:
             continue
@@ -275,7 +298,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, co
         experiment = experiments.with_slug(external_config.slug)
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
 
-        if platform not in external_configs.definitions:
+        if platform not in ConfigLoader.configs.definitions:
             logger.exception(
                 str(f"Invalid platform {platform}"),
                 exc_info=None,
@@ -283,11 +306,11 @@ def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, co
             )
             continue
 
-        platform_definitions = external_configs.definitions[platform]
+        platform_definitions = ConfigLoader.configs.definitions[platform]
         spec = platform_definitions.spec
 
         if not external_config.spec.project.skip_default_metrics:
-            spec.merge(external_configs.default_spec_for_platform(platform))
+            spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
         spec.merge(external_config.spec)
         config = (external_config.slug, spec.resolve(experiment))
         break
@@ -299,7 +322,7 @@ def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, co
             if rollout.normandy_slug == slug:
                 platform = rollout.app_name or DEFAULT_PLATFORM
 
-                if platform not in external_configs.definitions:
+                if platform not in ConfigLoader.configs.definitions:
                     logger.exception(
                         str(f"Invalid platform {platform}"),
                         exc_info=None,
@@ -308,10 +331,10 @@ def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, co
                     continue
 
                 # resolve config by applying platform and custom config specs
-                platform_definitions = external_configs.definitions[platform]
+                platform_definitions = ConfigLoader.configs.definitions[platform]
                 spec = copy.deepcopy(platform_definitions.spec)
-                spec.merge(external_configs.default_spec_for_platform(platform))
-                spec.merge(external_configs.default_spec_for_type("rollout"))
+                spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
+                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
                 config = (rollout.normandy_slug, spec.resolve(rollout))
                 break
 
@@ -351,11 +374,15 @@ def backfill(project_id, dataset_id, start_date, end_date, slug, config_file, co
 
 @cli.command("validate_config")
 @click.argument("path", type=click.Path(exists=True), nargs=-1)
-def validate_config(path: Iterable[os.PathLike]):
+@config_repos_option
+@private_config_repos_option
+def validate_config(path: Iterable[os.PathLike], config_repos, private_config_repos):
     """Validate config files."""
     dirty = False
-    external_configs = ExternalConfigCollection.from_github_repo()
-    platform_definitions = external_configs.definitions
+    ConfigLoader.with_configs_from(config_repos).with_configs_from(
+        private_config_repos, is_private=True
+    )
+    platform_definitions = ConfigLoader.configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     # get updated definition files

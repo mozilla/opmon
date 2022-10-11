@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 import pytz
+from jetstream_config_parser.experiment import Channel
 
-from opmon import Channel
 from opmon.experimenter import (
     Branch,
     Experiment,

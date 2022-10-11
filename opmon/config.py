@@ -8,10 +8,9 @@ Calling .resolve(config_spec) on a Spec object produces a concrete resolved Conf
 """
 
 
-from jetstream_config_parser.config import (
-    ConfigCollection,
-)
-from typing import Optional, List
+from typing import List, Optional
+
+from jetstream_config_parser.config import ConfigCollection
 
 
 class _ConfigLoader:
@@ -46,3 +45,6 @@ class _ConfigLoader:
         )
         self.configs.merge(config_collection)
         return self
+
+
+ConfigLoader = _ConfigLoader()

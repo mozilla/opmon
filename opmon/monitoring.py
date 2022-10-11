@@ -10,13 +10,14 @@ from typing import Any, Dict, Optional
 import attr
 from google import cloud
 from google.cloud import bigquery
+from jetstream_config_parser.alert import AlertType
+from jetstream_config_parser.monitoring import MonitoringConfiguration
 from jinja2 import Environment, FileSystemLoader
 
 from opmon.platform import PLATFORM_CONFIGS
 
-from . import AlertType, errors
+from . import errors
 from .bigquery_client import BigQueryClient
-from .config import MonitoringConfiguration
 from .dryrun import dry_run_query
 from .logging import LogConfiguration
 from .utils import bq_normalize_name
@@ -393,8 +394,10 @@ class Monitoring:
             + f"_v{SCHEMA_VERSIONS['metric']}`",
             metrics_table_dummy,
         )
-        print(f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
-            + f"_v{SCHEMA_VERSIONS['metric']}`")
+        print(
+            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
+            + f"_v{SCHEMA_VERSIONS['metric']}`"
+        )
         print("fooooooooooooo")
         print(f"Dry run statitics SQL for {self.normalized_slug}")
         dry_run_query(statistics_sql)

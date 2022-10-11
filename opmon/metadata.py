@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import attr
+from jetstream_config_parser.monitoring import MonitoringConfiguration
 from jinja2 import Environment, FileSystemLoader
 
 from opmon.bigquery_client import BigQueryClient
-from opmon.config import MonitoringConfiguration
 
 PATH = Path(os.path.dirname(__file__))
 PROJECTS_TABLE = "projects_v1"
