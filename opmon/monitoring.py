@@ -165,7 +165,7 @@ class Monitoring:
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["metric"],
             "is_glean_app": PLATFORM_CONFIGS[
-                self.config.project.platform or "firefox_desktop"
+                self.config.project.app_name or "firefox_desktop"
                 if self.config.project
                 else "firefox_desktop"
             ].is_glean_app,
@@ -398,8 +398,7 @@ class Monitoring:
             f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
             + f"_v{SCHEMA_VERSIONS['metric']}`"
         )
-        print("fooooooooooooo")
-        print(f"Dry run statitics SQL for {self.normalized_slug}")
+        print(f"Dry run statistics SQL for {self.normalized_slug}")
         dry_run_query(statistics_sql)
 
         total_alerts = 0

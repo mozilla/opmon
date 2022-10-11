@@ -1,5 +1,3 @@
-import pytest
-
 from opmon.config import ConfigLoader
 
 
@@ -20,23 +18,25 @@ class TestConfigLoader:
 
     def test_spec_for_experiment(self):
         experiment = ConfigLoader.configs.configs[0].slug
-        assert ConfigLoader.spec_for_experiment(experiment) is not None
+        assert ConfigLoader.configs.spec_for_experiment(experiment) is not None
 
     def test_spec_for_nonexisting_experiment(self):
-        assert ConfigLoader.spec_for_experiment("non_exisiting") is None
+        assert ConfigLoader.configs.spec_for_experiment("non_exisiting") is None
 
     def test_get_outcome(self):
         outcome = ConfigLoader.configs.outcomes[0]
-        assert ConfigLoader.get_outcome(outcome.slug, outcome.platform) is not None
+        assert ConfigLoader.configs.spec_for_outcome(outcome.slug, outcome.platform) is not None
 
     def test_get_nonexisting_outcome(self):
-        assert ConfigLoader.get_outcome("non_existing", "foo") is None
+        assert ConfigLoader.configs.spec_for_outcome("non_existing", "foo") is None
 
     def test_get_data_source(self):
         metric = list(ConfigLoader.configs.definitions[0].spec.metrics.definitions.values())[0]
         platform = ConfigLoader.configs.definitions[0].platform
-        assert ConfigLoader.get_data_source(metric.data_source.name, platform) is not None
+        assert (
+            ConfigLoader.configs.get_data_source_definition(metric.data_source.name, platform)
+            is not None
+        )
 
     def test_get_nonexisting_data_source(self):
-        with pytest.raises(Exception):
-            ConfigLoader.get_data_source("non_existing", "foo") is None
+        assert ConfigLoader.configs.get_data_source_definition("non_existing", "foo") is None

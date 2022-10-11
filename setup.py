@@ -62,7 +62,7 @@ setup(
         "pytz",
         "requests",
         "toml",
-        "jetstream-config-parser",
+        "mozilla-jetstream-config-parser",
     ],
     include_package_data=True,
     tests_require=test_dependencies,

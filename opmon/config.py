@@ -4,13 +4,19 @@ Parses configuration specifications into concrete objects.
 Spec objects are direct representations of the configuration and contain unresolved references
 to metrics and data sources.
 
-Calling .resolve(config_spec) on a Spec object produces a concrete resolved Configuration class.
+Calling .resolve(config_spec, ConfigLoader.configs) on a Spec object produces a
+concrete resolved Configuration class.
 """
 
 
 from typing import List, Optional
 
 from jetstream_config_parser.config import ConfigCollection
+
+DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"
+# todo update once metric hub has been set up
+# METRIC_HUB_REPO = "https://github.com/mozilla/jetstream-config"
+METRIC_HUB_REPO = "https://github.com/mozilla/opmon-config"
 
 
 class _ConfigLoader:
@@ -29,7 +35,9 @@ class _ConfigLoader:
             return configs
 
         if self.config_collection is None:
-            self.config_collection = ConfigCollection.from_github_repo()
+            self.config_collection = ConfigCollection.from_github_repos(
+                [METRIC_HUB_REPO, DEFAULT_CONFIG_REPO]
+            )
         self._configs = self.config_collection
         return self._configs
 
