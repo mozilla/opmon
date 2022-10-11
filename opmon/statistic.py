@@ -5,8 +5,8 @@ from abc import ABC
 from typing import Any, Dict, List
 
 import attr
+from jetstream_config_parser.metric import Metric
 
-from opmon import Metric
 from opmon.errors import StatisticNotImplementedForTypeException
 
 

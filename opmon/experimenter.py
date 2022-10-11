@@ -8,8 +8,7 @@ import attr
 import cattr
 import pytz
 import requests
-
-from opmon import Channel
+from jetstream_config_parser.experiment import Channel
 
 from .utils import retry_get
 
