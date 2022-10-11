@@ -18,7 +18,7 @@ from jetstream_config_parser.config import (
 )
 from jetstream_config_parser.monitoring import MonitoringConfiguration
 
-from opmon.config import ConfigLoader
+from opmon.config import DEFAULT_CONFIG_REPO, METRIC_HUB_REPO, ConfigLoader
 from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
 from opmon.logging import LogConfiguration
@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
-DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"
-METRIC_HUB_REPO = "https://github.com/mozilla/jetstream-config"
 
 
 class ClickDate(click.ParamType):
@@ -155,7 +153,7 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
                 continue
 
         experiment = experiments.with_slug(external_config.slug)
-        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform = external_config.spec.project.app_name or experiment.app_name or DEFAULT_PLATFORM
 
         if platform not in ConfigLoader.configs.definitions:
             logger.exception(
@@ -176,7 +174,7 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
                 spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
         spec.merge(external_config.spec)
 
-        configs.append((external_config.slug, spec.resolve(experiment)))
+        configs.append((external_config.slug, spec.resolve(experiment, ConfigLoader.configs)))
 
     # prepare rollouts that do not have an external config
     if slug is None:
@@ -198,7 +196,7 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
                 spec = copy.deepcopy(platform_definitions.spec)
                 spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
                 spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
-                configs.append((rollout.normandy_slug, spec.resolve(rollout)))
+                configs.append((rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs)))
 
     # filter out projects that have finished or not started
     prior_date = date - timedelta(days=1)
@@ -296,7 +294,7 @@ def backfill(
             continue
 
         experiment = experiments.with_slug(external_config.slug)
-        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform = external_config.spec.project.app_name or experiment.app_name or DEFAULT_PLATFORM
 
         if platform not in ConfigLoader.configs.definitions:
             logger.exception(
@@ -312,7 +310,7 @@ def backfill(
         if not external_config.spec.project.skip_default_metrics:
             spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
         spec.merge(external_config.spec)
-        config = (external_config.slug, spec.resolve(experiment))
+        config = (external_config.slug, spec.resolve(experiment, ConfigLoader.configs))
         break
 
     # check if backfill is for a rollout
@@ -335,7 +333,7 @@ def backfill(
                 spec = copy.deepcopy(platform_definitions.spec)
                 spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
                 spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
-                config = (rollout.normandy_slug, spec.resolve(rollout))
+                config = (rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs))
                 break
 
     # determine backfill time frame based on start and end dates
@@ -425,7 +423,7 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
 
         if config_file.parent.name != DEFINITIONS_DIR:
             platform = (
-                entity.spec.project.platform
+                entity.spec.project.app_name
                 or (experiment.app_name if experiment else None)
                 or DEFAULT_PLATFORM
             )

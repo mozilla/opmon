@@ -4,13 +4,11 @@ from textwrap import dedent
 import pytest
 import pytz
 import toml
-from jetstream_config_parser.monitoring import (
-    Monitoring,
-    MonitoringConfiguration,
-    MonitoringSpec,
-)
+from jetstream_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
 from opmon import errors
+from opmon.config import ConfigLoader
+from opmon.monitoring import Monitoring
 
 
 class TestMonitoring:
@@ -30,6 +28,9 @@ class TestMonitoring:
             select_expression = "SELECT 1"
             data_source = "foo"
 
+            [metrics.test.statistics]
+            sum = {}
+
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
@@ -37,7 +38,10 @@ class TestMonitoring:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
-            project="test", dataset="test", slug="test-foo", config=spec.resolve()
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
         with pytest.raises(errors.NoStartDateException):
@@ -55,6 +59,9 @@ class TestMonitoring:
             select_expression = "SELECT 1"
             data_source = "foo"
 
+            [metrics.test.statistics]
+            sum = {}
+
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
@@ -62,7 +69,10 @@ class TestMonitoring:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
-            project="test", dataset="test", slug="test-foo", config=spec.resolve()
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
         with pytest.raises(errors.EndedException):
@@ -80,6 +90,9 @@ class TestMonitoring:
             select_expression = "SELECT 1"
             data_source = "foo"
 
+            [metrics.test.statistics]
+            sum = {}
+
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
@@ -87,7 +100,10 @@ class TestMonitoring:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
-            project="test", dataset="test", slug="test-foo", config=spec.resolve()
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
         assert (
@@ -103,7 +119,10 @@ class TestMonitoring:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
-            project="test", dataset="test", slug="test-foo", config=spec.resolve()
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
         assert "population" in monitoring._get_metrics_sql(
@@ -127,6 +146,9 @@ class TestMonitoring:
             data_source = "foo"
             type = "scalar"
 
+            [metrics.test.statistics]
+            sum = {}
+
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
@@ -134,7 +156,10 @@ class TestMonitoring:
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
-            project="test", dataset="test", slug="test-foo", config=spec.resolve()
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
         assert "SELECT 1" in monitoring._get_metrics_sql(
