@@ -1,10 +1,12 @@
 """Implementations of custom statistics that can be referenced in metric configs."""
 
+import copy
 import re
 from abc import ABC
 from typing import Any, Dict, List
 
 import attr
+from jetstream_config_parser import metric as parser_metric
 from jetstream_config_parser.metric import Metric
 
 from opmon.errors import StatisticNotImplementedForTypeException
@@ -205,3 +207,32 @@ class Percentile(Statistic):
                 "{metric.name}"
             )
         """
+
+
+@attr.s(auto_attribs=True)
+class Summary:
+    """Represents a metric with a statistical treatment."""
+
+    metric: Metric
+    statistic: "Statistic"
+
+    @classmethod
+    def from_config(cls, summary_config: parser_metric.Summary) -> "Summary":
+        """Create a Jetstream-native Summary representation."""
+        metric = summary_config.metric
+
+        found = False
+        for statistic in Statistic.__subclasses__():
+            if statistic.name() == summary_config.statistic.name:
+                found = True
+                break
+
+        if not found:
+            raise ValueError(f"Statistic '{summary_config.statistic.name}' does not exist.")
+
+        stats_params = copy.deepcopy(summary_config.statistic.params)
+
+        return cls(
+            metric=metric,
+            statistic=statistic.from_dict(stats_params),
+        )

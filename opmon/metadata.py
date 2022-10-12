@@ -9,6 +9,7 @@ from jetstream_config_parser.monitoring import MonitoringConfiguration
 from jinja2 import Environment, FileSystemLoader
 
 from opmon.bigquery_client import BigQueryClient
+from opmon.statistic import Summary
 
 PATH = Path(os.path.dirname(__file__))
 PROJECTS_TABLE = "projects_v1"
@@ -54,7 +55,10 @@ class Metadata:
         for slug, config in self.projects:
             summaries = config.metrics
             render_summaries = [
-                {"metric": summary.metric.name, "statistic": summary.statistic.name()}
+                {
+                    "metric": summary.metric.name,
+                    "statistic": Summary.from_config(summary).statistic.name(),
+                }
                 for summary in summaries
             ]
 

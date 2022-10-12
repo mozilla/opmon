@@ -16,9 +16,9 @@ from jetstream_config_parser.config import (
     DEFINITIONS_DIR,
     entity_from_path,
 )
-from jetstream_config_parser.monitoring import MonitoringConfiguration
+from jetstream_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
-from opmon.config import DEFAULT_CONFIG_REPO, METRIC_HUB_REPO, ConfigLoader
+from opmon.config import DEFAULT_CONFIG_REPO, METRIC_HUB_REPO, ConfigLoader, validate
 from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
 from opmon.logging import LogConfiguration
@@ -152,10 +152,14 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
             if external_config.slug != slug:
                 continue
 
-        experiment = experiments.with_slug(external_config.slug)
-        platform = external_config.spec.project.app_name or experiment.app_name or DEFAULT_PLATFORM
+        if not isinstance(external_config, MonitoringSpec):
+            continue
 
-        if platform not in ConfigLoader.configs.definitions:
+        experiment = experiments.with_slug(external_config.slug)
+        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform_definitions = ConfigLoader.configs.get_platform_definitions(app_name=platform)
+
+        if platform_definitions is None:
             logger.exception(
                 str(f"Invalid platform {platform}"),
                 exc_info=None,
@@ -164,14 +168,17 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
             continue
 
         # resolve config by applying platform and custom config specs
-        platform_definitions = ConfigLoader.configs.definitions[platform]
-        spec = copy.deepcopy(platform_definitions.spec)
+        spec = MonitoringSpec.from_definition_spec(copy.deepcopy(platform_definitions))
 
         if not external_config.spec.project.skip_default_metrics:
-            spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
+            platform_defaults = ConfigLoader.configs.get_platform_defaults(platform)
+            if platform_defaults is not None:
+                spec.merge(platform_defaults)
 
             if experiment and experiment.is_rollout:
-                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
+                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                if platform_defaults is not None:
+                    spec.merge(platform_defaults)
         spec.merge(external_config.spec)
 
         configs.append((external_config.slug, spec.resolve(experiment, ConfigLoader.configs)))
@@ -182,8 +189,9 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
         for rollout in rollouts:
             if not any([c[0] == rollout.normandy_slug for c in configs]):
                 platform = rollout.app_name or DEFAULT_PLATFORM
+                platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
-                if platform not in ConfigLoader.configs.definitions:
+                if platform_definitions is None:
                     logger.exception(
                         str(f"Invalid platform {platform}"),
                         exc_info=None,
@@ -192,10 +200,16 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
                     continue
 
                 # resolve config by applying platform and custom config specs
-                platform_definitions = ConfigLoader.configs.definitions[platform]
-                spec = copy.deepcopy(platform_definitions.spec)
-                spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
-                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
+                spec = MonitoringSpec.from_definition_spec(copy.deepcopy(platform_definitions))
+
+                platform_defaults = ConfigLoader.configs.get_platform_defaults(platform)
+                if platform_defaults is not None:
+                    spec.merge(platform_defaults)
+
+                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                if platform_defaults is not None:
+                    spec.merge(platform_defaults)
+
                 configs.append((rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs)))
 
     # filter out projects that have finished or not started
@@ -282,7 +296,6 @@ def backfill(
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
         private_config_repos, is_private=True
     )
-    platform_definitions = ConfigLoader.configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     # get and resolve configs for projects
@@ -293,10 +306,14 @@ def backfill(
         if external_config.slug != slug:
             continue
 
-        experiment = experiments.with_slug(external_config.slug)
-        platform = external_config.spec.project.app_name or experiment.app_name or DEFAULT_PLATFORM
+        if not isinstance(external_config.spec, MonitoringSpec):
+            continue
 
-        if platform not in ConfigLoader.configs.definitions:
+        experiment = experiments.with_slug(external_config.slug)
+        platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
+        platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
+
+        if platform_definitions is None:
             logger.exception(
                 str(f"Invalid platform {platform}"),
                 exc_info=None,
@@ -304,11 +321,12 @@ def backfill(
             )
             continue
 
-        platform_definitions = ConfigLoader.configs.definitions[platform]
-        spec = platform_definitions.spec
+        spec = MonitoringSpec.from_definition_spec(platform_definitions)
 
         if not external_config.spec.project.skip_default_metrics:
-            spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
+            platform_defaults = ConfigLoader.configs.get_platform_defaults(platform)
+            if platform_defaults is not None:
+                spec.merge(platform_defaults)
         spec.merge(external_config.spec)
         config = (external_config.slug, spec.resolve(experiment, ConfigLoader.configs))
         break
@@ -319,8 +337,9 @@ def backfill(
         for rollout in rollouts:
             if rollout.normandy_slug == slug:
                 platform = rollout.app_name or DEFAULT_PLATFORM
+                platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
-                if platform not in ConfigLoader.configs.definitions:
+                if platform_definitions is None:
                     logger.exception(
                         str(f"Invalid platform {platform}"),
                         exc_info=None,
@@ -329,10 +348,14 @@ def backfill(
                     continue
 
                 # resolve config by applying platform and custom config specs
-                platform_definitions = ConfigLoader.configs.definitions[platform]
-                spec = copy.deepcopy(platform_definitions.spec)
-                spec.merge(ConfigLoader.configs.default_spec_for_platform(platform))
-                spec.merge(ConfigLoader.configs.default_spec_for_type("rollout"))
+                spec = MonitoringSpec.from_definition_spec(copy.deepcopy(platform_definitions.spec))
+                platform_defaults = ConfigLoader.configs.get_platform_defaults(platform)
+                if platform_defaults is not None:
+                    spec.merge(platform_defaults)
+
+                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                if platform_defaults is not None:
+                    spec.merge(platform_defaults)
                 config = (rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs))
                 break
 
@@ -380,11 +403,9 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
         private_config_repos, is_private=True
     )
-    platform_definitions = ConfigLoader.configs.definitions
     experiments = ExperimentCollection.from_experimenter().ever_launched()
 
     # get updated definition files
-    updated_definitions = {}
     for config_file in path:
         config_file = Path(config_file)
         if not config_file.is_file():
@@ -394,9 +415,7 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
             continue
 
         if config_file.parent.name == DEFINITIONS_DIR:
-            updated_definitions[config_file.stem] = entity_from_path(config_file)
-
-    platform_definitions.update(updated_definitions)
+            ConfigLoader.configs.definitions.append(entity_from_path(config_file))
 
     for config_file in path:
         config_file = Path(config_file)
@@ -407,6 +426,7 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
             continue
         print(f"Evaluating {config_file}...")
         entity = entity_from_path(config_file)
+
         experiment = experiments.with_slug(entity.slug)
         monitor_entire_population = False
         if entity.spec.project and entity.spec.project.population:
@@ -421,24 +441,33 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
             # set dummy date for validating defaults
             entity.spec.project.start_date = "2022-01-01"
 
+        call = partial(
+            validate,
+            config=entity,
+            config_getter=ConfigLoader.with_configs_from(config_repos).with_configs_from(
+                private_config_repos, is_private=True
+            ),
+            experiment=experiment,
+        )
+
         if config_file.parent.name != DEFINITIONS_DIR:
             platform = (
-                entity.spec.project.app_name
+                entity.spec.project.platform
                 or (experiment.app_name if experiment else None)
                 or DEFAULT_PLATFORM
             )
+            platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
-            if platform not in platform_definitions:
+            if platform_definitions is None:
                 print(f"Invalid platform {platform}")
                 dirty = True
                 continue
 
-            platform_definition = platform_definitions[platform]
             spec = entity.spec
-            spec.merge(platform_definition.spec)
+            spec.merge(platform_definitions)
 
             try:
-                entity.validate(experiment)
+                call()
             except DryRunFailedError as e:
                 print("Error evaluating SQL:")
                 for i, line in enumerate(e.sql.split("\n")):

@@ -20,6 +20,7 @@ from . import errors
 from .bigquery_client import BigQueryClient
 from .dryrun import dry_run_query
 from .logging import LogConfiguration
+from .statistic import Summary
 from .utils import bq_normalize_name
 
 PATH = Path(os.path.dirname(__file__))
@@ -226,7 +227,7 @@ class Monitoring:
                 for i in itertools.product([True, False], repeat=len(self.config.dimensions))
                 if any(i)
             ],
-            "summaries": self.config.metrics,
+            "summaries": [Summary.from_config(summary) for summary in self.config.metrics],
             "submission_date": submission_date,
             "table_version": SCHEMA_VERSIONS["metric"],
         }
@@ -241,7 +242,7 @@ class Monitoring:
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["statistic"],
-            "summaries": self.config.metrics,
+            "summaries": [Summary.from_config(summary) for summary in self.config.metrics],
             "dimensions": self.config.dimensions,
         }
         sql = self._render_sql(STATISTICS_VIEW_FILENAME, render_kwargs)
