@@ -70,7 +70,7 @@ iniconfig==1.1.1
     # via pytest
 isort==5.10.1
     # via mozilla-opmon
-mozilla-jetstream-config-parser==2022.10.4
+mozilla-jetstream-config-parser==2022.10.5
     # via mozilla-opmon
 jinja2==3.1.0
     # via mozilla-opmon

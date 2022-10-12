@@ -18,14 +18,10 @@ class TestConfigLoader:
 
     def test_spec_for_experiment(self):
         experiment = ConfigLoader.configs.configs[0].slug
-        assert ConfigLoader.configs.spec_for_experiment(experiment) is not None
+        assert ConfigLoader.configs.spec_for_project(experiment) is not None
 
     def test_spec_for_nonexisting_experiment(self):
-        assert ConfigLoader.configs.spec_for_experiment("non_exisiting") is None
-
-    def test_get_outcome(self):
-        outcome = ConfigLoader.configs.outcomes[0]
-        assert ConfigLoader.configs.spec_for_outcome(outcome.slug, outcome.platform) is not None
+        assert ConfigLoader.configs.spec_for_project("non_exisiting") is None
 
     def test_get_nonexisting_outcome(self):
         assert ConfigLoader.configs.spec_for_outcome("non_existing", "foo") is None
