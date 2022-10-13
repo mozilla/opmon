@@ -395,10 +395,6 @@ class Monitoring:
             + f"_v{SCHEMA_VERSIONS['metric']}`",
             metrics_table_dummy,
         )
-        print(
-            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
-            + f"_v{SCHEMA_VERSIONS['metric']}`"
-        )
         print(f"Dry run statistics SQL for {self.normalized_slug}")
         dry_run_query(statistics_sql)
 
