@@ -366,9 +366,9 @@ mccabe==0.6.1 \
     # via
     #   -r requirements.in
     #   flake8
-mozilla-jetstream-config-parser==2022.10.5 \
-    --hash=sha256:2f26d2f4d443369e58c212aa40ff98482a32990a10ea21167939f4f1a225ca56 \
-    --hash=sha256:5e46af92279eaf08d3cb9477b120699850781d9fa2c8a536d74c236c04c73cf4
+mozilla-jetstream-config-parser==2022.10.6 \
+    --hash=sha256:11d028ae4db616de786c292db9831c60cceb07181a24f14f3dd84bad7f50be8b \
+    --hash=sha256:1688fb61f1a7344ccea45561b29e24542dc737426e564c584ac3470a97beb126
     # via -r requirements.in
 mypy==0.942 \
     --hash=sha256:0e2dd88410937423fba18e57147dd07cd8381291b93d5b1984626f173a26543e \
