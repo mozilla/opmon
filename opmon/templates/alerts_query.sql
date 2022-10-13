@@ -306,7 +306,7 @@ WHERE ci_overlap = FALSE
 UNION ALL
 SELECT DISTINCT
     DATE("{{ submission_date }}") AS submission_date,
-    SAFE_CAST(build_id AS STRING) AS build_id,
+    build_id,
     metric,
     statistic,
     branch,
