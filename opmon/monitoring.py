@@ -10,9 +10,9 @@ from typing import Any, Dict, Optional
 import attr
 from google import cloud
 from google.cloud import bigquery
-from jetstream_config_parser.alert import AlertType
-from jetstream_config_parser.monitoring import MonitoringConfiguration
 from jinja2 import Environment, FileSystemLoader
+from metric_config_parser.alert import AlertType
+from metric_config_parser.monitoring import MonitoringConfiguration
 
 from opmon.platform import PLATFORM_CONFIGS
 
