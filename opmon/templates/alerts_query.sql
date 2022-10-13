@@ -173,16 +173,16 @@ hist_diffs AS (
     {% endfor %}
     {% else %}
     SELECT
-        NULL AS submission_date,
+        DATE("{{ submission_date }}") AS submission_date,
         NULL AS build_id,
-        NULL AS metric,
-        NULL AS statistic,
-        NULL AS branch,
+        "" AS metric,
+        "" AS statistic,
+        "" AS branch,
         {% for dimension in dimensions -%}
             NULL AS {{ dimension.name }},
         {% endfor -%}
         NULL AS parameter,
-        NULL AS diff,
+        FALSE AS diff,
         NULL AS window_size,
     {% endif %}
 )
