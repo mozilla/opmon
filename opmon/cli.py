@@ -11,12 +11,8 @@ from typing import Iterable, Tuple
 
 import click
 import pytz
-from jetstream_config_parser.config import (
-    DEFAULTS_DIR,
-    DEFINITIONS_DIR,
-    entity_from_path,
-)
-from jetstream_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
+from metric_config_parser.config import DEFAULTS_DIR, DEFINITIONS_DIR, entity_from_path
+from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
 from opmon.config import DEFAULT_CONFIG_REPO, METRIC_HUB_REPO, ConfigLoader, validate
 from opmon.dryrun import DryRunFailedError

@@ -12,15 +12,15 @@ concrete resolved Configuration class.
 import datetime as dt
 from typing import List, Optional, Union
 
-from jetstream_config_parser.config import (
+from metric_config_parser.config import (
     Config,
     ConfigCollection,
     DefaultConfig,
     DefinitionConfig,
     Outcome,
 )
-from jetstream_config_parser.experiment import Experiment
-from jetstream_config_parser.monitoring import MonitoringSpec
+from metric_config_parser.experiment import Experiment
+from metric_config_parser.monitoring import MonitoringSpec
 from pytz import UTC
 
 DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"

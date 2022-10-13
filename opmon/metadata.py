@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import attr
-from jetstream_config_parser.monitoring import MonitoringConfiguration
 from jinja2 import Environment, FileSystemLoader
+from metric_config_parser.monitoring import MonitoringConfiguration
 
 from opmon.bigquery_client import BigQueryClient
 from opmon.statistic import Summary

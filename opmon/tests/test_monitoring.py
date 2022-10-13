@@ -4,7 +4,7 @@ from textwrap import dedent
 import pytest
 import pytz
 import toml
-from jetstream_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
+from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
 from opmon import errors
 from opmon.config import ConfigLoader
