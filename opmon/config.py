@@ -24,9 +24,7 @@ from metric_config_parser.monitoring import MonitoringSpec
 from pytz import UTC
 
 DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"
-# todo update once metric hub has been set up
-# METRIC_HUB_REPO = "https://github.com/mozilla/jetstream-config"
-METRIC_HUB_REPO = "https://github.com/mozilla/opmon-config"
+METRIC_HUB_REPO = "https://github.com/mozilla/metric-hub"
 
 
 class _ConfigLoader:
