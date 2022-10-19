@@ -436,7 +436,8 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
                 break
         else:
             # set dummy date for validating defaults
-            entity.spec.project.start_date = "2022-01-01"
+            if config_file.parent.name != DEFINITIONS_DIR:
+                entity.spec.project.start_date = "2022-01-01"
 
         call = partial(
             validate,
