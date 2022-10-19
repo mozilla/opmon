@@ -425,7 +425,7 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
 
         experiment = experiments.with_slug(entity.slug)
         monitor_entire_population = False
-        if entity.spec.project and entity.spec.project.population:
+        if "project" in entity.spec and entity.spec.project and entity.spec.project.population:
             monitor_entire_population = entity.spec.project.population.monitor_entire_population
 
         if config_file.parent.name != DEFINITIONS_DIR and config_file.parent.name != DEFAULTS_DIR:
