@@ -148,12 +148,12 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
             if external_config.slug != slug:
                 continue
 
-        if not isinstance(external_config, MonitoringSpec):
+        if not isinstance(external_config.spec, MonitoringSpec):
             continue
 
         experiment = experiments.with_slug(external_config.slug)
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
-        platform_definitions = ConfigLoader.configs.get_platform_definitions(app_name=platform)
+        platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
         if platform_definitions is None:
             logger.exception(
