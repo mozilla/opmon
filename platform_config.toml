@@ -3,3 +3,27 @@
 # Desktop platforms configuration
 [platform.firefox_desktop]
 is_glean_app = false
+
+
+[platform.fenix]
+is_glean_app = true
+
+
+[platform.firefox_ios]
+is_glean_app = true
+
+
+[platform.klar_ios]
+is_glean_app = true
+
+
+[platform.focus_ios]
+is_glean_app = true
+
+
+[platform.klar_android]
+is_glean_app = true
+
+
+[platform.focus_android]
+is_glean_app = true
