@@ -5,7 +5,7 @@ CREATE TABLE `{{ gcp_project }}.{{ dataset }}_derived.{{ table }}` (
     xaxis STRING,
     branches ARRAY<STRING>,
     dimensions ARRAY<STRING>,
-    summaries ARRAY<STRUCT<statistic STRING, metric STRING>>,
+    summaries ARRAY<STRUCT<statistic STRING, metric STRING, metric_groups ARRAY<STRING>>>,
     start_date DATE,
     end_date DATE,
     group_by_dimension STRING,
@@ -52,7 +52,15 @@ VALUES
     ],
     [
         {% for summary in project.summaries -%}
-        STRUCT("{{ summary['statistic'] }}" AS statistic, "{{ summary['metric'] }}" AS metric)
+        STRUCT(
+            "{{ summary['statistic'] }}" AS statistic, 
+            "{{ summary['metric'] }}" AS metric
+            {% if summary['metric'] in project.metric_groups %}
+            , CAST({{ project.metric_groups[summary['metric']] }} AS ARRAY<STRING>) AS metric_groups
+            {% else %} 
+            , CAST([] AS ARRAY<STRING>) as metric_groups
+            {% endif %}
+        )
         {{ "," if not loop.last else "" }}
         {% endfor %}
     ],

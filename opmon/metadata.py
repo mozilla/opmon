@@ -70,6 +70,14 @@ class Metadata:
             ):
                 continue
 
+            metric_groups: Dict[str, List[Any]] = {}
+            for metric_group in config.project.metric_groups:
+                for metric in metric_group.metrics:
+                    if metric.name in metric_groups:
+                        metric_groups[metric.name].append(metric_group.name)
+                    else:
+                        metric_groups[metric.name] = [metric_group.name]
+
             project_metadata.append(
                 {
                     "slug": slug,
@@ -77,6 +85,7 @@ class Metadata:
                     "summaries": render_summaries,
                     "config": config.project,
                     "alerts": config.alerts,
+                    "metric_groups": metric_groups,
                 }
             )
 
