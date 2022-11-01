@@ -366,9 +366,9 @@ mccabe==0.6.1 \
     # via
     #   -r requirements.in
     #   flake8
-mozilla-metric-config-parser==2022.10.10 \
-    --hash=sha256:6eee0b2ab46280a2cceef9c4f5f334e67e1b7cd199e236588a960acb7c3359df \
-    --hash=sha256:ace78464c0b9794be7711a7d303ebd34274d51b381e8e00a04bb3603e9d38605
+mozilla-metric-config-parser==2022.11.1 \
+    --hash=sha256:66285ff2bdb3b71b6d11b9b03b12328ffd0b92a0853eeee184d30a835d2e5922 \
+    --hash=sha256:dd3acf0a6eddd93d0cd859f4815f6871834b620c05d6dc7ce1eb72a5acd0c612
     # via -r requirements.in
 mypy==0.942 \
     --hash=sha256:0e2dd88410937423fba18e57147dd07cd8381291b93d5b1984626f173a26543e \
