@@ -210,6 +210,32 @@ class Percentile(Statistic):
 
 
 @attr.s(auto_attribs=True)
+class TotalRatio(Statistic):
+    """Compute the ratio of the sum of two metrics."""
+
+    denominator_metric: str
+
+    def _scalar_compute(self, metric: Metric):
+        return f"""ARRAY<STRUCT<
+                metric STRING,
+                statistic STRING,
+                point FLOAT64,
+                lower FLOAT64,
+                upper FLOAT64,
+                parameter STRING
+            >>[
+            STRUCT(
+                "{metric.name}" AS metric,
+                "{self.name()}" AS statistic,
+                SUM({metric.name}) / SUM({self.denominator_metric}) AS point,
+                NULL AS lower,
+                NULL AS upper,
+                '{self.denominator_metric}' AS parameter
+            )
+        ]"""
+
+
+@attr.s(auto_attribs=True)
 class Summary:
     """Represents a metric with a statistical treatment."""
 
