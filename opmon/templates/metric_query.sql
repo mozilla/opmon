@@ -8,7 +8,7 @@
 merged_metrics_{{ data_source }} AS (
     SELECT
         DATE({{ metrics[0].data_source.submission_date_column }}) AS submission_date,
-        {{ config.population.data_source.client_id_column }} AS client_id,
+        {{ metrics[0].data_source.client_id_column }} AS client_id,
         p.population_build_id AS build_id,
         {% for metric in metrics -%}
         {{ metric.select_expression }} AS {{ metric.name }},
@@ -26,7 +26,7 @@ merged_metrics_{{ data_source }} AS (
         ) AS p
     ON
         {{ metrics[0].data_source.submission_date_column }} = p.population_submission_date AND
-        {{ config.population.data_source.client_id_column }} = p.population_client_id
+        {{ metrics[0].data_source.client_id_column }} = p.population_client_id
     WHERE
         {% if config.xaxis.value == "submission_date" %}
         DATE({{ metrics[0].data_source.submission_date_column }}) = DATE('{{ submission_date }}')
