@@ -170,6 +170,7 @@ class Percentile(Statistic):
     """Percentile with confidence interval statistic."""
 
     percentiles: List[int] = [50, 90, 99]
+    remove_nulls: bool = False
 
     def _scalar_compute(self, metric: Metric):
         return f"""
@@ -178,7 +179,9 @@ class Percentile(Statistic):
                 merge_histogram_values(
                     ARRAY_CONCAT_AGG(
                         histogram_normalized_sum(
-                            [STRUCT<values ARRAY<STRUCT<key FLOAT64, value FLOAT64>>>(
+                            [IF({self.remove_nulls} AND {metric.name} IS NULL,
+                                NULL,
+                                STRUCT<values ARRAY<STRUCT<key FLOAT64, value FLOAT64>>>(
                                 [STRUCT<key FLOAT64, value FLOAT64>(
                                     COALESCE(
                                         mozfun.glam.histogram_bucket_from_value(
@@ -187,7 +190,7 @@ class Percentile(Statistic):
                                         ), 0.0
                                     ), 1.0
                                 )]
-                            )], 1.0
+                            ))], 1.0
                         )
                     )
                 ),
