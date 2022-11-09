@@ -151,7 +151,7 @@ class TestMonitoring:
 
             [data_sources]
             [data_sources.foo]
-            from_expression = "test"
+            from_expression = "test_data_source"
             """
         )
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
@@ -162,6 +162,46 @@ class TestMonitoring:
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
 
-        assert "SELECT 1" in monitoring._get_metrics_sql(
+        sql = monitoring._get_metrics_sql(submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc))
+        assert "SELECT 1" in sql
+        assert "test_data_source" in sql
+
+    def test_get_metric_fenix_sql(self):
+        config_str = dedent(
+            """
+            [project]
+            metrics = ["test"]
+            start_date = "2022-01-01"
+            end_date = "2022-02-01"
+            platform = "fenix"
+
+            [project.population]
+            channel = "nightly"
+            data_source = "foo"
+
+            [metrics]
+            [metrics.test]
+            select_expression = "SELECT 1"
+            data_source = "foo"
+            type = "scalar"
+
+            [metrics.test.statistics]
+            sum = {}
+
+            [data_sources]
+            [data_sources.foo]
+            from_expression = "{dataset}.test"
+            default_dataset = "test"
+            """
+        )
+        spec = MonitoringSpec.from_dict(toml.loads(config_str))
+        monitoring = Monitoring(
+            project="test",
+            dataset="test",
+            slug="test-foo",
+            config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
+        )
+
+        assert "org_mozilla_fenix." in monitoring._get_metrics_sql(
             submission_date=datetime(2022, 1, 2, tzinfo=pytz.utc)
         )

@@ -2,6 +2,7 @@
 
 import itertools
 import os
+import re
 from asyncio.log import logger
 from datetime import datetime
 from pathlib import Path
@@ -118,6 +119,11 @@ class Monitoring:
         sql = template.render(**render_kwargs)
         return sql
 
+    def _app_id_to_bigquery_dataset(self, app_id: Optional[str]) -> Optional[str]:
+        if app_id is None:
+            return None
+        return re.sub(r"[^a-zA-Z0-9]", "_", app_id).lower()
+
     def _get_metrics_sql(self, submission_date: datetime, first_run: Optional[bool] = None) -> str:
         """Return SQL for data_type ETL."""
         metrics = self.config.metrics
@@ -170,6 +176,18 @@ class Monitoring:
                 if self.config.project
                 else "firefox_desktop"
             ].is_glean_app,
+            "app_id": self._app_id_to_bigquery_dataset(
+                PLATFORM_CONFIGS[
+                    self.config.project.app_name or "firefox_desktop"
+                    if self.config.project
+                    else "firefox_desktop"
+                ].app_id.get(
+                    self.config.project.population.channel.value
+                    if self.config.project.population.channel
+                    else None,
+                    None,
+                )
+            ),
         }
 
         sql_filename = METRIC_QUERY_FILENAME

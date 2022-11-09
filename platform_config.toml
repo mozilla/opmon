@@ -4,26 +4,31 @@
 [platform.firefox_desktop]
 is_glean_app = false
 
-
 [platform.fenix]
 is_glean_app = true
+app_id = { release = "org.mozilla.firefox", beta = "org.mozilla.firefox_beta", nightly = "org.mozilla.fenix" }
 
 
 [platform.firefox_ios]
 is_glean_app = true
+app_id = { release = "org.mozilla.ios.Firefox", beta = "org.mozilla.ios.FirefoxBeta", nightly = "org.mozilla.ios.Fennec" }
 
 
 [platform.klar_ios]
 is_glean_app = true
+app_id = { release = "org.mozilla.ios.Klar" }
 
 
 [platform.focus_ios]
 is_glean_app = true
+app_id = { release = "org.mozilla.ios.Focus" }
 
 
 [platform.klar_android]
 is_glean_app = true
+app_id = { release = "org.mozilla.klar" }
 
 
 [platform.focus_android]
 is_glean_app = true
+app_id = { release = "org.mozilla.focus", beta = "org.mozilla.focus.beta", nightly = "org.mozilla.focus.nightly" }
