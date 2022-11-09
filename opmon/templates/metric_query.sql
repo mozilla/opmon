@@ -14,7 +14,7 @@ merged_metrics_{{ data_source }} AS (
         {{ metric.select_expression }} AS {{ metric.name }},
         {% endfor -%}
     FROM
-        {{ metrics[0].data_source.from_expression }}
+        {{ metrics[0].data_source.from_expr_for(app_id) }}
     RIGHT JOIN
         ( 
             SELECT

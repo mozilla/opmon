@@ -46,7 +46,11 @@ WITH population AS (
           END AS branch,
         {% endif %}
     FROM
-        {{ config.population.data_source.from_expression }}
+        {%- if config.population.data_source %}
+        {{ config.population.data_source.from_expr_for(app_id) }}
+        {%- else %}
+        None
+        {%- endif %}
     WHERE
         {% if config.xaxis.value == "submission_date" %}
         DATE({{ config.population.data_source.submission_date_column }}) = DATE('{{ submission_date }}')

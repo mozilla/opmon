@@ -37,6 +37,7 @@ class Platform:
 
     app_name: str = attr.ib(validator=_check_value_not_null)
     is_glean_app: bool = True
+    app_id: Dict[str, str] = {}
 
 
 def _generate_platform_config(config: MutableMapping[str, Any]) -> Dict[str, Platform]:
@@ -47,6 +48,7 @@ def _generate_platform_config(config: MutableMapping[str, Any]) -> Dict[str, Pla
         processed_config[platform] = {
             "is_glean_app": platform_config.get("is_glean_app", True),
             "app_name": platform,
+            "app_id": platform_config.get("app_id", {}),
         }
 
     return {
