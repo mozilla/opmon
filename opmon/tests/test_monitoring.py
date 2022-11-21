@@ -14,7 +14,13 @@ from opmon.monitoring import Monitoring
 class TestMonitoring:
     def test_init_monitoring(self):
         conf = MonitoringConfiguration()
-        monitoring = Monitoring(project="test", dataset="test", slug="test-foo", config=conf)
+        monitoring = Monitoring(
+            project="test",
+            dataset="test",
+            derived_dataset="test_derived",
+            slug="test-foo",
+            config=conf,
+        )
         assert monitoring.normalized_slug == "test_foo"
 
     def test_check_runnable(self):
@@ -40,6 +46,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
@@ -71,6 +78,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
@@ -102,6 +110,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
@@ -121,6 +130,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
@@ -158,6 +168,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )
@@ -198,6 +209,7 @@ class TestMonitoring:
         monitoring = Monitoring(
             project="test",
             dataset="test",
+            derived_dataset="test_derived",
             slug="test-foo",
             config=spec.resolve(experiment=None, configs=ConfigLoader.configs),
         )

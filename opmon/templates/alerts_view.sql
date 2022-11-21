@@ -6,4 +6,4 @@ AS
 SELECT 
     *
 FROM
-    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_alerts_v{{ table_version }}`
+    `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}_alerts_v{{ table_version }}`

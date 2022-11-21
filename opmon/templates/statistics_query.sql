@@ -58,7 +58,7 @@ buckets_by_metric AS (
 --     SELECT
 --         * 
 --     FROM
---         `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}`
+--         `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}`
 --     {% if dimensions | length > 0 %}
 --     WHERE
 --     {% for dimension in dimensions -%}
@@ -80,7 +80,7 @@ buckets_by_metric AS (
 --             {% endfor %}
 --         )
 --     FROM
---         `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}` AS o
+--         `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}` AS o
 --     WHERE
 --         TRUE
 --         {% for is_all in perm %}
@@ -104,7 +104,7 @@ SELECT
         {{ "," if not loop.last else "" }}
     {% endfor %}
 FROM
-    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_v{{ table_version }}` 
+    `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}_v{{ table_version }}` 
 CROSS JOIN buckets_by_metric
 WHERE submission_date = DATE("{{ submission_date }}")
 GROUP BY
