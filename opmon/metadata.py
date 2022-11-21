@@ -23,6 +23,7 @@ class Metadata:
 
     project: str
     dataset: str
+    derived_dataset: str
     projects: List[Tuple[str, MonitoringConfiguration]]
 
     @property
@@ -40,7 +41,7 @@ class Metadata:
 
     def write(self) -> None:
         """Update the BQ table with project metadata."""
-        destination_table = f"{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}"
+        destination_table = f"{self.project}.{self.derived_dataset}.{PROJECTS_TABLE}"
 
         # check if projects metadata table exists; otherwise it needs to be created
         first_run = True
@@ -92,6 +93,7 @@ class Metadata:
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
+            "derived_dataset": self.derived_dataset,
             "table": PROJECTS_TABLE,
             "projects": project_metadata,
             "first_run": first_run,
@@ -104,7 +106,7 @@ class Metadata:
         view_query = f"""
             CREATE OR REPLACE VIEW `{self.project}.{self.dataset}.{view_name}` AS (
                 SELECT *
-                FROM `{self.project}.{self.dataset}_derived.{PROJECTS_TABLE}`
+                FROM `{self.project}.{self.derived_dataset}.{PROJECTS_TABLE}`
             )
         """
 

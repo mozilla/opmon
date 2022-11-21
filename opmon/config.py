@@ -112,4 +112,6 @@ def validate(
     else:
         raise Exception(f"Unable to validate config: {config}")
 
-    Monitoring("no project", "no dataset", config.slug, resolved_config).validate()
+    Monitoring(
+        "no project", "no dataset", "no derived dataset", config.slug, resolved_config
+    ).validate()

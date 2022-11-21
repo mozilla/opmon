@@ -20,11 +20,13 @@ from opmon.experimenter import ExperimentCollection
 from opmon.logging import LogConfiguration
 from opmon.metadata import Metadata
 from opmon.monitoring import Monitoring
+from opmon.utils import bq_normalize_name
 
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
+LOOKER_PREVIEW_URL = "https://mozilla.cloud.looker.com/dashboards/operational_monitoring::preview"
 
 
 class ClickDate(click.ParamType):
@@ -49,8 +51,13 @@ dataset_id_option = click.option(
     "--dataset_id",
     "--dataset-id",
     default="operational_monitoring",
-    help="Publicly accessible dataset to write to. "
-    + "Tables will get written to corresponding _derived dataset",
+    help="Publicly accessible dataset to write to.",
+)
+derived_dataset_id_option = click.option(
+    "--dataset_id",
+    "--dataset-id",
+    default="operational_monitoring_derived",
+    help="Derived dataset to write to.",
 )
 
 slug_option = click.option(
@@ -122,6 +129,7 @@ def cli(
 @cli.command()
 @project_id_option
 @dataset_id_option
+@derived_dataset_id_option
 @click.option(
     "--date",
     type=ClickDate(),
@@ -133,7 +141,16 @@ def cli(
 @parallelism_option
 @config_repos_option
 @private_config_repos_option
-def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_config_repos):
+def run(
+    project_id,
+    dataset_id,
+    derived_dataset_id,
+    date,
+    slug,
+    parallelism,
+    config_repos,
+    private_config_repos,
+):
     """Execute the monitoring ETL for a specific date."""
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
         private_config_repos, is_private=True
@@ -218,7 +235,7 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
         and not cfg.project.skip
     ]
 
-    run = partial(_run, project_id, dataset_id, date)
+    run = partial(_run, project_id, dataset_id, derived_dataset_id, date)
 
     success = False
     with ThreadPool(parallelism) as pool:
@@ -234,12 +251,17 @@ def run(project_id, dataset_id, date, slug, parallelism, config_repos, private_c
 def _run(
     project_id: str,
     dataset_id: str,
+    derived_dataset_id: str,
     submission_date: datetime,
     config: Tuple[str, MonitoringConfiguration],
 ):
     """Execute by parallel processes."""
     monitoring = Monitoring(
-        project=project_id, dataset=dataset_id, slug=config[0], config=config[1]
+        project=project_id,
+        dataset=dataset_id,
+        derived_dataset=derived_dataset_id,
+        slug=config[0],
+        config=config[1],
     )
     monitoring.run(submission_date)
     return True
@@ -248,6 +270,7 @@ def _run(
 @cli.command()
 @project_id_option
 @dataset_id_option
+@derived_dataset_id_option
 @click.option(
     "--start_date",
     "--start-date",
@@ -281,6 +304,7 @@ def _run(
 def backfill(
     project_id,
     dataset_id,
+    derived_dataset_id,
     start_date,
     end_date,
     slug,
@@ -377,16 +401,119 @@ def backfill(
         print(f"Backfill {date}")
         try:
             monitoring = Monitoring(
-                project=project_id, dataset=dataset_id, slug=config[0], config=config[1]
+                project=project_id,
+                dataset=dataset_id,
+                derived_dataset=derived_dataset_id,
+                slug=config[0],
+                config=config[1],
             )
             monitoring.run(date)
         except Exception as e:
             print(f"Error backfilling {config[0]}: {e}")
             success = False
 
-    Metadata(project_id, dataset_id, [config]).write()
+    Metadata(project_id, dataset_id, derived_dataset_id, [config]).write()
 
     sys.exit(0 if success else 1)
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--project_id",
+    "--project-id",
+    default="mozdata",
+    help="Project to write to",
+)
+@click.option(
+    "--dataset_id",
+    "--dataset-id",
+    default="tmp",
+    help="Temporary dataset to write to",
+)
+@click.option(
+    "--derived_dataset_id",
+    "--derived-dataset-id",
+    default="tmp",
+    help="Temporary derived dataset to write to",
+)
+@click.option(
+    "--start_date",
+    "--start-date",
+    type=ClickDate(),
+    help="Date for which project should be started to get analyzed. Default: current date - 3 days",
+    metavar="YYYY-MM-DD",
+    required=False,
+)
+@click.option(
+    "--end_date",
+    "--end-date",
+    type=ClickDate(),
+    help="Date for which project should be stop to get analyzed. Default: current date",
+    metavar="YYYY-MM-DD",
+    required=False,
+)
+@click.option(
+    "--slug",
+    help="Experimenter or Normandy slug associated with the project to create a preview for",
+    required=True,
+)
+@click.option(
+    "--config_file",
+    "--config-file",
+    help="Custom local config file",
+    required=False,
+    type=click.Path(exists=True),
+)
+@config_repos_option
+@private_config_repos_option
+def preview(
+    ctx,
+    project_id,
+    dataset_id,
+    derived_dataset_id,
+    start_date,
+    end_date,
+    slug,
+    config_file,
+    config_repos,
+    private_config_repos,
+):
+    """Create a preview for a specific project based on a subset of data."""
+    if start_date is None and end_date is None:
+        start_date = datetime.today() - timedelta(days=3)
+        end_date = datetime.today()
+    elif start_date is None:
+        start_date = end_date - timedelta(days=3)
+    else:
+        end_date = start_date + timedelta(days=3)
+
+    start_date = pytz.utc.localize(start_date)
+    end_date = pytz.utc.localize(end_date)
+
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    end_date_str = end_date.strftime("%Y-%m-%d")
+    table = bq_normalize_name(slug)
+
+    click.echo(
+        "A preview is available at: "
+        + "https://mozilla.cloud.looker.com/dashboards/975?"
+        + f'Table="{project_id}.{dataset_id}.{table}_statistics"'
+        + f"&Submission+Date={start_date_str}+to+{end_date_str}"
+    )
+
+    ctx.invoke(
+        backfill,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        derived_dataset_id=derived_dataset_id,
+        start_date=start_date,
+        end_date=end_date,
+        slug=slug,
+        config_file=config_file,
+        config_repos=config_repos,
+        private_config_repos=private_config_repos,
+    )
 
 
 @cli.command("validate_config")

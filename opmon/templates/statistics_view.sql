@@ -9,20 +9,20 @@ WITH stats AS (
     SELECT 
         * 
     FROM
-    `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics_v{{ table_version }}`
+    `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}_statistics_v{{ table_version }}`
 )
 {% else %}
 WITH most_recent_date AS (
     SELECT 
         MAX(submission_date) AS most_recent
     FROM
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics_v{{ table_version }}`
+        `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}_statistics_v{{ table_version }}`
 ),
 stats AS (
     SELECT
         *
     FROM 
-        `{{ gcp_project }}.{{ dataset }}_derived.{{ normalized_slug }}_statistics_v{{ table_version }}`,
+        `{{ gcp_project }}.{{ derived_dataset }}.{{ normalized_slug }}_statistics_v{{ table_version }}`,
         most_recent_date
     WHERE
         PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) = DATE_SUB(submission_date, INTERVAL 14 DAY) OR

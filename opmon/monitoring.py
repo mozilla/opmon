@@ -43,6 +43,7 @@ class Monitoring:
 
     project: str
     dataset: str
+    derived_dataset: str
     slug: str
     config: MonitoringConfiguration
     log_config: Optional[LogConfiguration] = None
@@ -90,7 +91,7 @@ class Monitoring:
 
         try:
             self.bigquery.client.get_table(
-                f"{self.dataset}_derived.{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
+                f"{self.derived_dataset}.{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
             )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
             destination_table = (
@@ -100,7 +101,7 @@ class Monitoring:
                 self._get_metrics_sql(submission_date=submission_date),
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -108,7 +109,7 @@ class Monitoring:
                 f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
@@ -149,7 +150,7 @@ class Monitoring:
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
             destination_table = (
-                f"{self.project}.{self.dataset}_derived"
+                f"{self.project}.{self.derived_dataset}"
                 + f".{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
             )
             first_run = True
@@ -198,6 +199,7 @@ class Monitoring:
         """Return the SQL to create a BigQuery view."""
         render_kwargs = {
             "gcp_project": self.project,
+            "derived_dataset": self.derived_dataset,
             "dataset": self.dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
@@ -209,7 +211,7 @@ class Monitoring:
     def _run_statistics_sql(self, submission_date):
         try:
             self.bigquery.client.get_table(
-                f"{self.dataset}_derived.{self.normalized_slug}_statistics"
+                f"{self.derived_dataset}.{self.normalized_slug}_statistics"
                 + f"_v{SCHEMA_VERSIONS['statistic']}"
             )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
@@ -221,7 +223,7 @@ class Monitoring:
                 self._get_statistics_sql(submission_date=submission_date),
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -229,7 +231,7 @@ class Monitoring:
                 f"{self.normalized_slug}_statistics_v{SCHEMA_VERSIONS['statistic']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
 
     def _get_statistics_sql(self, submission_date) -> str:
@@ -237,6 +239,7 @@ class Monitoring:
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
+            "derived_dataset": self.derived_dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "dimensions": self.config.dimensions,
@@ -257,6 +260,7 @@ class Monitoring:
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
+            "derived_dataset": self.derived_dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["statistic"],
@@ -323,7 +327,7 @@ class Monitoring:
 
         try:
             self.bigquery.client.get_table(
-                f"{self.dataset}_derived.{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
+                f"{self.derived_dataset}.{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
             )
             date_partition = str(submission_date).replace("-", "").split(" ")[0]
             destination_table = (
@@ -333,7 +337,7 @@ class Monitoring:
                 self._get_sql_for_alerts(submission_date=submission_date),
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -341,7 +345,7 @@ class Monitoring:
                 f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}",
                 clustering=["build_id"],
                 time_partitioning="submission_date",
-                dataset=f"{self.dataset}_derived",
+                dataset=f"{self.derived_dataset}",
             )
 
         print(f"Create alerts view for {self.slug}")
@@ -352,6 +356,7 @@ class Monitoring:
         render_kwargs = {
             "gcp_project": self.project,
             "dataset": self.dataset,
+            "derived_dataset": self.derived_dataset,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["alert"],
         }
@@ -409,7 +414,7 @@ class Monitoring:
             f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
         )
         statistics_sql = statistics_sql.replace(
-            f"`{self.project}.{self.dataset}_derived.{self.normalized_slug}"
+            f"`{self.project}.{self.derived_dataset}.{self.normalized_slug}"
             + f"_v{SCHEMA_VERSIONS['metric']}`",
             metrics_table_dummy,
         )
