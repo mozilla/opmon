@@ -16,17 +16,27 @@ merged_metrics_{{ data_source }} AS (
     FROM
         {{ metrics[0].data_source.from_expr_for(app_id) }}
     RIGHT JOIN
-        ( 
+        (
             SELECT
                 client_id AS population_client_id,
                 submission_date AS population_submission_date,
-                build_id AS population_build_id
+                build_id AS population_build_id,
             FROM
-              population
+                population
+            GROUP BY
+                population_client_id,
+                population_submission_date,
+                population_build_id
+
         ) AS p
     ON
-        {{ metrics[0].data_source.submission_date_column }} = p.population_submission_date AND
-        {{ metrics[0].data_source.client_id_column }} = p.population_client_id
+        {{ metrics[0].data_source.submission_date_column }} = p.population_submission_date
+        AND {{ metrics[0].data_source.client_id_column }} = p.population_client_id
+        {% if config.xaxis.value == "submission_date" %}
+        AND p.population_build_id IS NULL
+        {% else %}
+        AND {{ metrics[0].data_source.build_id_column }} = p.population_build_id
+        {% endif %}
     WHERE
         {% if config.xaxis.value == "submission_date" %}
         DATE({{ metrics[0].data_source.submission_date_column }}) = DATE('{{ submission_date }}')
@@ -59,7 +69,7 @@ joined_metrics AS (
   FROM population
   {% for data_source, metrics in metrics_per_dataset.items() -%}
   LEFT JOIN merged_metrics_{{ data_source }}
-  ON 
+  ON
     merged_metrics_{{ data_source }}.submission_date = population.submission_date AND
     merged_metrics_{{ data_source }}.client_id = population.client_id AND
     (population.build_id IS NULL OR merged_metrics_{{ data_source }}.build_id = population.build_id)
@@ -92,7 +102,7 @@ SELECT
 FROM
     normalized_metrics
 {% if config.xaxis.value == "build_id"%}
-WHERE 
+WHERE
     PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) >= DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
 {% endif %}
 {% else -%}
@@ -100,6 +110,6 @@ WHERE
 SELECT
     * REPLACE(DATE('{{ submission_date }}') AS submission_date)
 FROM normalized_metrics _current
-WHERE 
+WHERE
     PARSE_DATE('%Y%m%d', CAST(build_id AS STRING)) >= DATE_SUB(DATE('{{ submission_date }}'), INTERVAL 14 DAY)
 {% endif -%}
