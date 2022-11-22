@@ -458,6 +458,13 @@ def backfill(
     required=False,
 )
 @click.option(
+    "--num_days",
+    "--num-days",
+    type=int,
+    help="Number of days for which the project be analyzed. Default: 3",
+    default=3,
+)
+@click.option(
     "--slug",
     help="Experimenter or Normandy slug associated with the project to create a preview for",
     required=True,
@@ -478,6 +485,7 @@ def preview(
     derived_dataset_id,
     start_date,
     end_date,
+    num_days,
     slug,
     config_file,
     config_repos,
@@ -485,12 +493,12 @@ def preview(
 ):
     """Create a preview for a specific project based on a subset of data."""
     if start_date is None and end_date is None:
-        start_date = datetime.today() - timedelta(days=3)
+        start_date = datetime.today() - timedelta(days=num_days)
         end_date = datetime.today() - timedelta(days=1)
     elif start_date is None:
-        start_date = end_date - timedelta(days=3)
+        start_date = end_date - timedelta(days=num_days)
     else:
-        end_date = start_date + timedelta(days=3)
+        end_date = start_date + timedelta(days=num_days)
 
     start_date = pytz.utc.localize(start_date)
     end_date = pytz.utc.localize(end_date)
