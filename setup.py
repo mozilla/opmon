@@ -55,6 +55,7 @@ setup(
         "attrs",
         "cattrs",
         "Click",
+        "click-option-group",
         "GitPython",
         "google-cloud-bigquery",
         "grpcio",  # https://github.com/googleapis/google-cloud-python/issues/6259

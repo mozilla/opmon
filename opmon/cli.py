@@ -11,6 +11,7 @@ from typing import Iterable, Tuple
 
 import click
 import pytz
+from click_option_group import RequiredAnyOptionGroup, optgroup
 from google.cloud import bigquery
 from metric_config_parser.config import DEFAULTS_DIR, DEFINITIONS_DIR, entity_from_path
 from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
@@ -464,16 +465,19 @@ def backfill(
     help="Number of days for which the project be analyzed. Default: 3",
     default=3,
 )
-@click.option(
+@optgroup.group(
+    "Input config and filtering",
+    cls=RequiredAnyOptionGroup,
+    help="The sources of the input configuration",
+)
+@optgroup.option(
     "--slug",
     help="Experimenter or Normandy slug associated with the project to create a preview for",
-    required=True,
 )
-@click.option(
+@optgroup.option(
     "--config_file",
     "--config-file",
     help="Custom local config file",
-    required=False,
     type=click.Path(exists=True),
 )
 @config_repos_option
@@ -502,6 +506,12 @@ def preview(
 
     start_date = pytz.utc.localize(start_date)
     end_date = pytz.utc.localize(end_date)
+
+    # At least one of `--slug` and `--config-file` is required.  If slug is not
+    # given, find it from the config file.
+    if not slug:
+        external_config = entity_from_path(Path(config_file))
+        slug = external_config.slug
 
     table = bq_normalize_name(slug)
 
