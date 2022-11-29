@@ -13,7 +13,7 @@ data, we proxy the queries through the dry run service endpoint.
 
 import json
 import logging
-from typing import Any
+from typing import Any, List, Union
 
 import requests
 import requests.exceptions
@@ -33,8 +33,12 @@ class DryRunFailedError(Exception):
         super().__init__(error)
 
 
-def dry_run_query(sql: str) -> None:
+def dry_run_query(sql: Union[str, List[str]]) -> None:
     """Dry run the provided SQL query."""
+    if isinstance(sql, list):
+        for query in sql:
+            dry_run_query(sql)
+        return
     try:
         r = requests.post(
             DRY_RUN_URL,

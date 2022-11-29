@@ -6,7 +6,7 @@ import re
 from asyncio.log import logger
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import attr
 from google import cloud
@@ -35,6 +35,8 @@ STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
+METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id"]
+MAX_DIMENSIONS_PER_METRIC_QUERY = 40
 
 
 @attr.s(auto_attribs=True)
@@ -97,6 +99,7 @@ class Monitoring:
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
+            join_keys=METRICS_JOIN_KEYS,
         )
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
@@ -117,7 +120,7 @@ class Monitoring:
         submission_date: datetime,
         first_run: Optional[bool] = None,
         table_name: Optional[str] = None,
-    ) -> str:
+    ) -> Union[str, List[str]]:
         """Return SQL for data_type ETL."""
         metrics = self.config.metrics
 
@@ -159,7 +162,6 @@ class Monitoring:
             "config": self.config.project,
             "dataset": self.dataset,
             "first_run": first_run,
-            "dimensions": self.config.dimensions,
             "metrics_per_dataset": metrics_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
@@ -184,7 +186,21 @@ class Monitoring:
         }
 
         sql_filename = METRIC_QUERY_FILENAME
-        sql = self._render_sql(sql_filename, render_kwargs)
+
+        # chunk queries and render multiple times
+        sql = [
+            self._render_sql(sql_filename, {"dimensions": dim_chunk, **render_kwargs})
+            for dim_chunk in (
+                self.config.dimensions[i:next_i]
+                for i in (
+                    list(range(0, len(self.config.dimensions), MAX_DIMENSIONS_PER_METRIC_QUERY))
+                    or [0]  # if there are 0 dimensions, still produce one result
+                )
+                for next_i in [i + MAX_DIMENSIONS_PER_METRIC_QUERY]
+            )
+        ]
+        if len(sql) == 1:
+            return sql[0]
         return sql
 
     def _get_metric_view_sql(self) -> str:
