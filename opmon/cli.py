@@ -27,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_PLATFORM = "firefox_desktop"
-LOOKER_PREVIEW_URL = "https://mozilla.cloud.looker.com/dashboards/operational_monitoring::preview"
+LOOKER_PREVIEW_URL = (
+    "https://mozilla.cloud.looker.com/dashboards/operational_monitoring::opmon_preview"
+)
 
 
 class ClickDate(click.ParamType):
@@ -484,7 +486,7 @@ def preview(
     """Create a preview for a specific project based on a subset of data."""
     if start_date is None and end_date is None:
         start_date = datetime.today() - timedelta(days=3)
-        end_date = datetime.today()
+        end_date = datetime.today() - timedelta(days=1)
     elif start_date is None:
         start_date = end_date - timedelta(days=3)
     else:
@@ -493,8 +495,6 @@ def preview(
     start_date = pytz.utc.localize(start_date)
     end_date = pytz.utc.localize(end_date)
 
-    start_date_str = start_date.strftime("%Y-%m-%d")
-    end_date_str = end_date.strftime("%Y-%m-%d")
     table = bq_normalize_name(slug)
 
     # delete previously created preview tables if exist
@@ -523,9 +523,12 @@ def preview(
         private_config_repos=private_config_repos,
     )
 
+    start_date_str = start_date.strftime("%Y-%m-%d")
+    end_date_str = (end_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
     click.echo(
         "A preview is available at: "
-        + f"{LOOKER_PREVIEW_URL}?Table={project_id}.{dataset_id}.{table}_statistics"
+        + f"{LOOKER_PREVIEW_URL}?Table='{project_id}.{dataset_id}.{table}_statistics'"
         + f"&Submission+Date={start_date_str}+to+{end_date_str}"
     )
 
