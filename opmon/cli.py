@@ -11,6 +11,7 @@ from typing import Iterable, Tuple
 
 import click
 import pytz
+from google.cloud import bigquery
 from metric_config_parser.config import DEFAULTS_DIR, DEFINITIONS_DIR, entity_from_path
 from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
@@ -19,7 +20,7 @@ from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
 from opmon.logging import LogConfiguration
 from opmon.metadata import Metadata
-from opmon.monitoring import Monitoring
+from opmon.monitoring import SCHEMA_VERSIONS, Monitoring
 from opmon.utils import bq_normalize_name
 
 logger = logging.getLogger(__name__)
@@ -393,12 +394,12 @@ def backfill(
 
     success = True
 
-    print(f"Start running backfill for {config[0]}: {start_date} to {end_date}")
+    print(f"Start running backfill for {config[0]}: {start_date.date()} to {end_date.date()}")
     # backfill needs to be run sequentially since data is required from previous runs
     for date in [
         start_date + timedelta(days=d) for d in range(0, (end_date - start_date).days + 1)
     ]:
-        print(f"Backfill {date}")
+        print(f"Backfill {date.date()}")
         try:
             monitoring = Monitoring(
                 project=project_id,
@@ -414,7 +415,8 @@ def backfill(
 
     Metadata(project_id, dataset_id, derived_dataset_id, [config]).write()
 
-    sys.exit(0 if success else 1)
+    if not success:
+        sys.exit(1)
 
 
 @cli.command()
@@ -495,11 +497,17 @@ def preview(
     end_date_str = end_date.strftime("%Y-%m-%d")
     table = bq_normalize_name(slug)
 
-    click.echo(
-        "A preview is available at: "
-        + "https://mozilla.cloud.looker.com/dashboards/975?"
-        + f'Table="{project_id}.{dataset_id}.{table}_statistics"'
-        + f"&Submission+Date={start_date_str}+to+{end_date_str}"
+    # delete previously created preview tables if exist
+    client = bigquery.client.Client(project_id)
+    client.delete_table(
+        f"{project_id}.{dataset_id}.{table}_{SCHEMA_VERSIONS['metric']}", not_found_ok=True
+    )
+    client.delete_table(
+        f"{project_id}.{dataset_id}.{table}_statistics_{SCHEMA_VERSIONS['statistic']}",
+        not_found_ok=True,
+    )
+    client.delete_table(
+        f"{project_id}.{dataset_id}.{table}_alerts_{SCHEMA_VERSIONS['alert']}", not_found_ok=True
     )
 
     ctx.invoke(
@@ -513,6 +521,12 @@ def preview(
         config_file=config_file,
         config_repos=config_repos,
         private_config_repos=private_config_repos,
+    )
+
+    click.echo(
+        "A preview is available at: "
+        + f"{LOOKER_PREVIEW_URL}?Table={project_id}.{dataset_id}.{table}_statistics"
+        + f"&Submission+Date={start_date_str}+to+{end_date_str}"
     )
 
 
