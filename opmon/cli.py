@@ -246,7 +246,7 @@ def run(
         success = all(results)
 
     if len(configs) > 0:
-        Metadata(project_id, dataset_id, configs).write()
+        Metadata(project_id, dataset_id, derived_dataset_id, configs).write()
 
     sys.exit(0 if success else 1)
 
