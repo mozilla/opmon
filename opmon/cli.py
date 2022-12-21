@@ -57,8 +57,8 @@ dataset_id_option = click.option(
     help="Publicly accessible dataset to write to.",
 )
 derived_dataset_id_option = click.option(
-    "--dataset_id",
-    "--dataset-id",
+    "--derived_dataset_id",
+    "--derived-dataset-id",
     default="operational_monitoring_derived",
     help="Derived dataset to write to.",
 )
