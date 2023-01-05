@@ -1,9 +1,26 @@
 """BigQuery handler."""
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Protocol, Union
 
 import attr
 from google.cloud import bigquery
 
+
+class BeforeExecuteCallback(Protocol):
+    """Optional callback invoked before each `execute`."""
+
+    def __call__(
+        self,
+        query: str,
+        job_config: bigquery.job.QueryJobConfig,
+        annotations: Dict[str, Any] = {},
+    ) -> None:
+        """Invoke before each `execute`.
+
+        Parameters are the BigQuery SQL string, the BigQuery job configuration,
+        and an optional dict of consumer-provided annotations for, e.g.,
+        including a relevant date, query type, etc.
+        """
+        pass
 
 def sql_table_id(table):
     """Get the standard sql format fully qualified id for a table."""
@@ -17,6 +34,8 @@ class BigQueryClient:
     project: str
     dataset: str
     _client: Optional[bigquery.client.Client] = None
+
+    before_execute_callback: Optional[BeforeExecuteCallback] = None
 
     @property
     def client(self) -> bigquery.client.Client:
@@ -34,6 +53,7 @@ class BigQueryClient:
         partition_expiration_ms: Optional[int] = None,
         dataset: Optional[str] = None,
         join_keys: Optional[List[str]] = None,
+        annotations: Dict[str, Any] = {},
     ) -> None:
         """Execute a SQL query and applies the provided parameters."""
         bq_dataset = bigquery.dataset.DatasetReference.from_string(
@@ -108,6 +128,9 @@ class BigQueryClient:
             job = self.client.query(query, config)
             # block on result
             job.result()
+
+            if callable(self.before_execute_callback):
+                self.before_execute_callback(query, config, annotations)
         finally:
             for job in parts:
                 self.client.delete_table(job.destination)
