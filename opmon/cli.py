@@ -3,7 +3,7 @@ import copy
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from functools import partial
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
@@ -497,8 +497,10 @@ def preview(
 ):
     """Create a preview for a specific project based on a subset of data."""
     if start_date is None and end_date is None:
-        start_date = datetime.today() - timedelta(days=num_days)
-        end_date = datetime.today() - timedelta(days=1)
+        today_midnight = datetime.combine(datetime.today(), time.min)
+        yesterday_midnight = today_midnight - timedelta(days=1)
+        end_date = yesterday_midnight
+        start_date = end_date - timedelta(days=num_days)
     elif start_date is None:
         start_date = end_date - timedelta(days=num_days)
     else:
