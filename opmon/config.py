@@ -23,6 +23,8 @@ from metric_config_parser.experiment import Experiment
 from metric_config_parser.monitoring import MonitoringSpec
 from pytz import UTC
 
+from opmon.bigquery_client import BeforeExecuteCallback
+
 DEFAULT_CONFIG_REPO = "https://github.com/mozilla/metric-hub/tree/main/opmon"
 METRIC_HUB_REPO = "https://github.com/mozilla/metric-hub"
 
@@ -70,6 +72,7 @@ def validate(
     config: Union[Outcome, Config, DefaultConfig, DefinitionConfig],
     experiment: Optional[Experiment] = None,
     config_getter: _ConfigLoader = ConfigLoader,
+    before_execute_callback: Optional[BeforeExecuteCallback] = None,
 ):
     """Validate and dry run a config."""
     from opmon.monitoring import Monitoring
@@ -112,6 +115,12 @@ def validate(
     else:
         raise Exception(f"Unable to validate config: {config}")
 
-    Monitoring(
-        "no project", "no dataset", "no derived dataset", config.slug, resolved_config
-    ).validate()
+    monitoring = Monitoring(
+        "no project",
+        "no dataset",
+        "no derived dataset",
+        config.slug,
+        resolved_config,
+        before_execute_callback=before_execute_callback,
+    )
+    monitoring.validate()

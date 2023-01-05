@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import attr
 from jinja2 import Environment, FileSystemLoader
@@ -25,11 +25,13 @@ class Metadata:
     dataset: str
     derived_dataset: str
     projects: List[Tuple[str, MonitoringConfiguration]]
+    _client: Optional[BigQueryClient] = None
 
     @property
     def bigquery(self):
         """Return the BigQuery client instance."""
-        return BigQueryClient(project=self.project, dataset=self.dataset)
+        self._client = self._client or BigQueryClient(project=self.project, dataset=self.dataset)
+        return self._client
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
         """Render and return the SQL from a template."""
