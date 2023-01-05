@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta
 from functools import partial
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, Optional, Tuple
 
 import click
 import pytz
@@ -16,6 +16,7 @@ from google.cloud import bigquery
 from metric_config_parser.config import DEFAULTS_DIR, DEFINITIONS_DIR, entity_from_path
 from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
 
+from opmon.bigquery_client import BeforeExecuteCallback
 from opmon.config import DEFAULT_CONFIG_REPO, METRIC_HUB_REPO, ConfigLoader, validate
 from opmon.dryrun import DryRunFailedError
 from opmon.experimenter import ExperimentCollection
@@ -76,6 +77,17 @@ config_file_option = click.option(
 
 parallelism_option = click.option(
     "--parallelism", "-p", help="Number of processes to run monitoring analysis", default=8
+)
+
+sql_output_dir_option = click.option(
+    "--sql_output_dir",
+    "--sql-output-dir",
+    type=click.Path(exists=False),
+    help="Write generated SQL to given directory",
+    required=False,
+    show_default=True,
+    default=None,
+    metavar="OUTDIR",
 )
 
 config_repos_option = click.option(
@@ -145,6 +157,7 @@ def cli(
 @parallelism_option
 @config_repos_option
 @private_config_repos_option
+@sql_output_dir_option
 def run(
     project_id,
     dataset_id,
@@ -154,6 +167,7 @@ def run(
     parallelism,
     config_repos,
     private_config_repos,
+    sql_output_dir,
 ):
     """Execute the monitoring ETL for a specific date."""
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
@@ -239,7 +253,14 @@ def run(
         and not cfg.project.skip
     ]
 
-    run = partial(_run, project_id, dataset_id, derived_dataset_id, date)
+    run = partial(
+        _run,
+        project_id,
+        dataset_id,
+        derived_dataset_id,
+        date,
+        before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
+    )
 
     success = False
     with ThreadPool(parallelism) as pool:
@@ -258,6 +279,7 @@ def _run(
     derived_dataset_id: str,
     submission_date: datetime,
     config: Tuple[str, MonitoringConfiguration],
+    before_execute_callback: Optional[BeforeExecuteCallback] = None,
 ):
     """Execute by parallel processes."""
     monitoring = Monitoring(
@@ -266,9 +288,38 @@ def _run(
         derived_dataset=derived_dataset_id,
         slug=config[0],
         config=config[1],
+        before_execute_callback=before_execute_callback,
     )
     monitoring.run(submission_date)
     return True
+
+
+def _before_execute_callback(sql_output_dir: Optional[Path], query, job_config, annotations={}):
+    """Maybe write SQL query to disk.
+
+    If `annotations` contain all of `slug`, `submission_date`, and
+    `type`, write `query` to given `sql_output_dir`.
+    """
+    if not sql_output_dir:
+        return
+
+    # Some annotations are required to write output.
+    if "slug" not in annotations:
+        return
+    if "submission_date" not in annotations:
+        return
+    if "type" not in annotations:
+        return
+
+    # We could avoid some IO by remembering what we've already created, but for
+    # now this will do.
+    Path(sql_output_dir).mkdir(parents=True, exist_ok=True)
+
+    # The submission date is actually a datetime.
+    submission_date = annotations["submission_date"].strftime("%Y-%m-%d")
+
+    fname = f"{annotations['slug']}-{annotations['type']}-{submission_date}.sql"
+    (sql_output_dir / fname).write_text(query)
 
 
 @cli.command()
@@ -305,6 +356,7 @@ def _run(
 )
 @config_repos_option
 @private_config_repos_option
+@sql_output_dir_option
 def backfill(
     project_id,
     dataset_id,
@@ -315,6 +367,7 @@ def backfill(
     config_file,
     config_repos,
     private_config_repos,
+    sql_output_dir,
 ):
     """Backfill a specific project."""
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
@@ -404,14 +457,14 @@ def backfill(
     ]:
         print(f"Backfill {date.date()}")
         try:
-            monitoring = Monitoring(
-                project=project_id,
-                dataset=dataset_id,
-                derived_dataset=derived_dataset_id,
-                slug=config[0],
-                config=config[1],
+            _run(
+                project_id,
+                dataset_id,
+                derived_dataset_id,
+                date,
+                config,
+                before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
             )
-            monitoring.run(date)
         except Exception as e:
             print(f"Error backfilling {config[0]}: {e}")
             success = False
@@ -482,6 +535,7 @@ def backfill(
 )
 @config_repos_option
 @private_config_repos_option
+@sql_output_dir_option
 def preview(
     ctx,
     project_id,
@@ -494,6 +548,7 @@ def preview(
     config_file,
     config_repos,
     private_config_repos,
+    sql_output_dir,
 ):
     """Create a preview for a specific project based on a subset of data."""
     if start_date is None and end_date is None:
@@ -541,6 +596,7 @@ def preview(
         config_file=config_file,
         config_repos=config_repos,
         private_config_repos=private_config_repos,
+        sql_output_dir=sql_output_dir,
     )
 
     start_date_str = start_date.strftime("%Y-%m-%d")
@@ -557,7 +613,10 @@ def preview(
 @click.argument("path", type=click.Path(exists=True), nargs=-1)
 @config_repos_option
 @private_config_repos_option
-def validate_config(path: Iterable[os.PathLike], config_repos, private_config_repos):
+@sql_output_dir_option
+def validate_config(
+    path: Iterable[os.PathLike], config_repos, private_config_repos, sql_output_dir
+):
     """Validate config files."""
     dirty = False
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
@@ -610,6 +669,7 @@ def validate_config(path: Iterable[os.PathLike], config_repos, private_config_re
                 private_config_repos, is_private=True
             ),
             experiment=experiment,
+            before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
         )
 
         if config_file.parent.name != DEFINITIONS_DIR:

@@ -18,7 +18,7 @@ from metric_config_parser.monitoring import MonitoringConfiguration
 from opmon.platform import PLATFORM_CONFIGS
 
 from . import errors
-from .bigquery_client import BigQueryClient
+from .bigquery_client import BeforeExecuteCallback, BigQueryClient
 from .dryrun import dry_run_query
 from .logging import LogConfiguration
 from .statistic import Summary
@@ -47,11 +47,21 @@ class Monitoring:
     slug: str
     config: MonitoringConfiguration
     log_config: Optional[LogConfiguration] = None
+    _client: Optional[BigQueryClient] = None
+
+    # Optional callback invoked before each BigQuery `execute`.  Parameters are
+    # the BigQuery SQL string, the BigQuery job configuration (or `None`, when
+    # validating), and an optional dict of consumer-provided annotations for,
+    # e.g., including a relevant date, query type, etc.
+    before_execute_callback: Optional[BeforeExecuteCallback] = None
 
     @property
     def bigquery(self):
         """Return the BigQuery client instance."""
-        return BigQueryClient(project=self.project, dataset=self.dataset)
+        if not self._client:
+            self._client = BigQueryClient(project=self.project, dataset=self.dataset)
+            self._client.before_execute_callback = self.before_execute_callback
+        return self._client
 
     @property
     def normalized_slug(self):
@@ -68,13 +78,27 @@ class Monitoring:
         self._run_metrics_sql(submission_date)
 
         print(f"Create metrics view for {self.slug}")
-        self.bigquery.execute(self._get_metric_view_sql())
+        self.bigquery.execute(
+            self._get_metric_view_sql(),
+            annotations={
+                "slug": self.slug,
+                "type": "metrics_view",
+                "submission_date": submission_date,
+            },
+        )
 
         print(f"Calculate statistics for {self.slug}")
         self._run_statistics_sql(submission_date)
 
         print(f"Create statistics view for {self.slug}")
-        self.bigquery.execute(self._get_statistics_view_sql())
+        self.bigquery.execute(
+            self._get_statistics_view_sql(),
+            annotations={
+                "slug": self.slug,
+                "type": "statistics_view",
+                "submission_date": submission_date,
+            },
+        )
 
         print(f"Create alerts data for {self.slug}")
         self._run_sql_for_alerts(submission_date)
@@ -102,6 +126,11 @@ class Monitoring:
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.derived_dataset}",
+                annotations={
+                    "slug": self.slug,
+                    "type": "metrics_query",
+                    "submission_date": submission_date,
+                },
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -224,6 +253,11 @@ class Monitoring:
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.derived_dataset}",
+                annotations={
+                    "slug": self.slug,
+                    "type": "statistics_query",
+                    "submission_date": submission_date,
+                },
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -338,6 +372,11 @@ class Monitoring:
                 destination_table,
                 write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
                 dataset=f"{self.derived_dataset}",
+                annotations={
+                    "slug": self.slug,
+                    "type": "alerts_query",
+                    "submission_date": submission_date,
+                },
             )
         except cloud.exceptions.NotFound:
             self.bigquery.execute(
@@ -349,7 +388,14 @@ class Monitoring:
             )
 
         print(f"Create alerts view for {self.slug}")
-        self.bigquery.execute(self._get_alerts_view_sql())
+        self.bigquery.execute(
+            self._get_alerts_view_sql(),
+            annotations={
+                "slug": self.slug,
+                "type": "alerts_view",
+                "submission_date": submission_date,
+            },
+        )
 
     def _get_alerts_view_sql(self) -> str:
         """Return the SQL to create a BigQuery view."""
@@ -375,6 +421,28 @@ class Monitoring:
             first_run=True,
         )
         print(f"Dry run metrics SQL for {self.normalized_slug}")
+
+        if callable(self.before_execute_callback):
+            # Before and after are the same query for metrics: there's no
+            # modification preparing for dry run.
+            self.before_execute_callback(
+                metrics_sql,
+                None,
+                annotations={
+                    "slug": self.slug,
+                    "type": "validate_metrics_query_original",
+                    "submission_date": self.config.project.start_date,
+                },
+            )
+            self.before_execute_callback(
+                metrics_sql,
+                None,
+                annotations={
+                    "slug": self.slug,
+                    "type": "validate_metrics_query_dryrun",
+                    "submission_date": self.config.project.start_date,
+                },
+            )
         dry_run_query(metrics_sql)
 
         dummy_metrics = {}
@@ -410,6 +478,19 @@ class Monitoring:
         statistics_sql = self._get_statistics_sql(
             submission_date=self.config.project.start_date,  # type: ignore
         )
+
+        # The original query is more useful for inspection.
+        if callable(self.before_execute_callback):
+            self.before_execute_callback(
+                statistics_sql,
+                None,
+                annotations={
+                    "slug": self.slug,
+                    "type": "validate_statistics_query_original",
+                    "submission_date": self.config.project.start_date,
+                },
+            )
+
         statistics_sql = statistics_sql.replace(
             f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
         )
@@ -419,6 +500,18 @@ class Monitoring:
             metrics_table_dummy,
         )
         print(f"Dry run statistics SQL for {self.normalized_slug}")
+
+        # But the modified query is what is actually submitted.
+        if callable(self.before_execute_callback):
+            self.before_execute_callback(
+                statistics_sql,
+                None,
+                annotations={
+                    "slug": self.slug,
+                    "type": "validate_statistics_query_dryrun",
+                    "submission_date": self.config.project.start_date,
+                },
+            )
         dry_run_query(statistics_sql)
 
         total_alerts = 0
@@ -445,9 +538,33 @@ class Monitoring:
             alerts_sql = self._get_sql_for_alerts(
                 submission_date=self.config.project.start_date,  # type: ignore
             )
+
+            # Again, the original is more useful for inspection.
+            if callable(self.before_execute_callback):
+                self.before_execute_callback(
+                    alerts_sql,
+                    None,
+                    annotations={
+                        "slug": self.slug,
+                        "type": "validate_alerts_query_original",
+                        "submission_date": self.config.project.start_date,
+                    },
+                )
+
             alerts_sql = alerts_sql.replace(
                 f"`{self.project}.{self.dataset}.{self.normalized_slug}_statistics`",
                 statistics_table_dummy,
             )
             print(f"Dry run alerts SQL for {self.normalized_slug}")
+
+            if callable(self.before_execute_callback):
+                self.before_execute_callback(
+                    alerts_sql,
+                    None,
+                    annotations={
+                        "slug": self.slug,
+                        "type": "validate_alerts_query_dryrun",
+                        "submission_date": self.config.project.start_date,
+                    },
+                )
             dry_run_query(alerts_sql)
