@@ -79,6 +79,9 @@ class Monitoring:
         print(f"Create alerts data for {self.slug}")
         self._run_sql_for_alerts(submission_date)
 
+        print(f"Create alerts view for {self.slug}")
+        self.bigquery.execute(self._get_alerts_view_sql())
+
         return True
 
     def _run_metrics_sql(self, submission_date: datetime):
@@ -89,28 +92,15 @@ class Monitoring:
             print(f"Failed to run opmon project: {e}")
             return
 
-        try:
-            self.bigquery.client.get_table(
-                f"{self.derived_dataset}.{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
-            )
-            date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = (
-                f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}${date_partition}"
-            )
-            self.bigquery.execute(
-                self._get_metrics_sql(submission_date=submission_date),
-                destination_table,
-                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.derived_dataset}",
-            )
-        except cloud.exceptions.NotFound:
-            self.bigquery.execute(
-                self._get_metrics_sql(submission_date=submission_date),
-                f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}",
-                clustering=["build_id"],
-                time_partitioning="submission_date",
-                dataset=f"{self.derived_dataset}",
-            )
+        table_name = f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
+        self.bigquery.execute(
+            self._get_metrics_sql(submission_date=submission_date, table_name=table_name),
+            destination=f"{table_name}${submission_date:%Y%m%d}",
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+            dataset=self.derived_dataset,
+        )
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
         """Render and return the SQL from a template."""
@@ -125,7 +115,12 @@ class Monitoring:
             return None
         return re.sub(r"[^a-zA-Z0-9]", "_", app_id).lower()
 
-    def _get_metrics_sql(self, submission_date: datetime, first_run: Optional[bool] = None) -> str:
+    def _get_metrics_sql(
+        self,
+        submission_date: datetime,
+        first_run: Optional[bool] = None,
+        table_name: Optional[str] = None,
+    ) -> str:
         """Return SQL for data_type ETL."""
         metrics = self.config.metrics
 
@@ -149,16 +144,16 @@ class Monitoring:
         # check if this is the first time the queries are executed
         # the queries are referencing the destination table if build_id is used for the time frame
         if first_run is None:
-            destination_table = (
-                f"{self.project}.{self.derived_dataset}"
-                + f".{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
-            )
             first_run = True
-            try:
-                self.bigquery.client.get_table(destination_table)
-                first_run = False
-            except Exception:
-                first_run = True
+            if table_name is not None:
+                try:
+                    self.bigquery.client.get_table(
+                        f"{self.project}.{self.derived_dataset}.{table_name}"
+                    )
+                except cloud.exceptions.NotFound:
+                    first_run = True
+                else:
+                    first_run = False
 
         render_kwargs = {
             "header": "-- Generated via opmon\n",
@@ -209,30 +204,15 @@ class Monitoring:
         return sql
 
     def _run_statistics_sql(self, submission_date):
-        try:
-            self.bigquery.client.get_table(
-                f"{self.derived_dataset}.{self.normalized_slug}_statistics"
-                + f"_v{SCHEMA_VERSIONS['statistic']}"
-            )
-            date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = (
-                f"{self.normalized_slug}_statistics"
-                + f"_v{SCHEMA_VERSIONS['statistic']}${date_partition}"
-            )
-            self.bigquery.execute(
-                self._get_statistics_sql(submission_date=submission_date),
-                destination_table,
-                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.derived_dataset}",
-            )
-        except cloud.exceptions.NotFound:
-            self.bigquery.execute(
-                self._get_statistics_sql(submission_date=submission_date),
-                f"{self.normalized_slug}_statistics_v{SCHEMA_VERSIONS['statistic']}",
-                clustering=["build_id"],
-                time_partitioning="submission_date",
-                dataset=f"{self.derived_dataset}",
-            )
+        table_name = f"{self.normalized_slug}_statistics_v{SCHEMA_VERSIONS['statistic']}"
+        self.bigquery.execute(
+            self._get_statistics_sql(submission_date=submission_date),
+            destination=f"{table_name}${submission_date:%Y%m%d}",
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+            dataset=self.derived_dataset,
+        )
 
     def _get_statistics_sql(self, submission_date) -> str:
         """Return the SQL to run the statistics."""
@@ -325,31 +305,15 @@ class Monitoring:
             print(f"No alerts configured for {self.normalized_slug}")
             return
 
-        try:
-            self.bigquery.client.get_table(
-                f"{self.derived_dataset}.{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
-            )
-            date_partition = str(submission_date).replace("-", "").split(" ")[0]
-            destination_table = (
-                f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}${date_partition}"
-            )
-            self.bigquery.execute(
-                self._get_sql_for_alerts(submission_date=submission_date),
-                destination_table,
-                write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
-                dataset=f"{self.derived_dataset}",
-            )
-        except cloud.exceptions.NotFound:
-            self.bigquery.execute(
-                self._get_metrics_sql(submission_date=submission_date),
-                f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}",
-                clustering=["build_id"],
-                time_partitioning="submission_date",
-                dataset=f"{self.derived_dataset}",
-            )
-
-        print(f"Create alerts view for {self.slug}")
-        self.bigquery.execute(self._get_alerts_view_sql())
+        table_name = f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
+        self.bigquery.execute(
+            self._get_sql_for_alerts(submission_date=submission_date),
+            destination=f"{table_name}${submission_date:%Y%m%d}",
+            clustering=["build_id"],
+            time_partitioning="submission_date",
+            write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
+            dataset=self.derived_dataset,
+        )
 
     def _get_alerts_view_sql(self) -> str:
         """Return the SQL to create a BigQuery view."""
