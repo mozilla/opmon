@@ -79,9 +79,6 @@ class Monitoring:
         print(f"Create alerts data for {self.slug}")
         self._run_sql_for_alerts(submission_date)
 
-        print(f"Create alerts view for {self.slug}")
-        self.bigquery.execute(self._get_alerts_view_sql())
-
         return True
 
     def _run_metrics_sql(self, submission_date: datetime):
@@ -314,6 +311,9 @@ class Monitoring:
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
         )
+
+        print(f"Create alerts view for {self.slug}")
+        self.bigquery.execute(self._get_alerts_view_sql())
 
     def _get_alerts_view_sql(self) -> str:
         """Return the SQL to create a BigQuery view."""
