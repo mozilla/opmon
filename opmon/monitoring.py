@@ -95,7 +95,7 @@ class Monitoring:
         table_name = f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
         self.bigquery.execute(
             self._get_metrics_sql(submission_date=submission_date, table_name=table_name),
-            destination=f"{table_name}${submission_date:%Y%m%d}",
+            destination_table=f"{table_name}${submission_date:%Y%m%d}",
             clustering=["build_id"],
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
@@ -207,7 +207,7 @@ class Monitoring:
         table_name = f"{self.normalized_slug}_statistics_v{SCHEMA_VERSIONS['statistic']}"
         self.bigquery.execute(
             self._get_statistics_sql(submission_date=submission_date),
-            destination=f"{table_name}${submission_date:%Y%m%d}",
+            destination_table=f"{table_name}${submission_date:%Y%m%d}",
             clustering=["build_id"],
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
@@ -308,7 +308,7 @@ class Monitoring:
         table_name = f"{self.normalized_slug}_alerts_v{SCHEMA_VERSIONS['alert']}"
         self.bigquery.execute(
             self._get_sql_for_alerts(submission_date=submission_date),
-            destination=f"{table_name}${submission_date:%Y%m%d}",
+            destination_table=f"{table_name}${submission_date:%Y%m%d}",
             clustering=["build_id"],
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
