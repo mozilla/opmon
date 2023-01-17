@@ -1,8 +1,13 @@
 """BigQuery handler."""
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import attr
 from google.cloud import bigquery
+
+
+def sql_table_id(table):
+    """Get the standard sql format fully qualified id for a table."""
+    return f"{table.project}.{table.dataset_id}.{table.table_id}"
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -21,13 +26,14 @@ class BigQueryClient:
 
     def execute(
         self,
-        query: str,
+        query: Union[str, List[str]],
         destination_table: Optional[str] = None,
         write_disposition: Optional[bigquery.job.WriteDisposition] = None,
         clustering: Optional[List[str]] = None,
         time_partitioning: Optional[str] = None,
         partition_expiration_ms: Optional[int] = None,
         dataset: Optional[str] = None,
+        join_keys: Optional[List[str]] = None,
     ) -> None:
         """Execute a SQL query and applies the provided parameters."""
         bq_dataset = bigquery.dataset.DatasetReference.from_string(
@@ -39,6 +45,7 @@ class BigQueryClient:
             "allow_large_results": True,
             "use_query_cache": False,
         }
+        base_kwargs = kwargs.copy()
 
         if destination_table:
             kwargs["destination"] = bq_dataset.table(destination_table)
@@ -59,10 +66,51 @@ class BigQueryClient:
             else:
                 kwargs["time_partitioning"] = bigquery.TimePartitioning(field=time_partitioning)
 
-        config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **kwargs)
-        job = self.client.query(query, config)
-        # block on result
-        job.result()
+        parts = []
+        if isinstance(query, list):
+            if not join_keys:
+                raise ValueError("multipart query specified without join keys")
+
+            for part in query:
+                config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **base_kwargs)
+                job = self.client.query(query, config)
+                # block on result
+                job.result()
+                parts.append(job)
+
+            # redefine query as a join over the parts, so that things like destination
+            # table and schema update options are available for the result
+            query = (
+                "SELECT\n  _0.*,\n"
+                + "".join(
+                    f"  _{i}.* EXCEPT({', '.join(join_keys)}),\n"
+                    for i, _ in enumerate(parts)
+                    if i > 0
+                )
+                + f"FROM\n  `{sql_table_id(parts[0].destination)}` AS _0\n"
+                + "".join(
+                    f"JOIN\n  `{sql_table_id(job.destination)}` AS _{i}\n"
+                    + "ON\n  "
+                    + "   AND ".join(
+                        "(\n"
+                        f"    _0.{join_key} = _{i}.{join_key}\n"
+                        f"    OR (_0.{join_key} IS NULL AND _{i}.{join_key} IS NULL)\n"
+                        "  )\n"
+                        for join_key in join_keys
+                    )
+                    for i, job in enumerate(parts)
+                    if i > 0
+                )
+            )
+
+        try:
+            config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **kwargs)
+            job = self.client.query(query, config)
+            # block on result
+            job.result()
+        finally:
+            for job in parts:
+                self.client.delete_table(job.destination)
 
     def load_table_from_json(
         self, results: Iterable[Dict], table: str, job_config: bigquery.LoadJobConfig
