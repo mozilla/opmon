@@ -62,7 +62,7 @@ setup(
         "pytz",
         "requests",
         "toml",
-        "mozilla-jetstream-config-parser",
+        "mozilla-metric-config-parser",
     ],
     include_package_data=True,
     tests_require=test_dependencies,
