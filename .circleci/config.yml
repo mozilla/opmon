@@ -26,10 +26,13 @@ jobs:
           venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
     - run:
         name: PyTest
-        command: venv/bin/pytest --black --flake8 --pydocstyle --ignore=opmon/tests/integration/
+        command: venv/bin/pytest --black --pydocstyle --ignore=opmon/tests/integration/
     - run:
         name: isort
         command: venv/bin/isort --check opmon
+    - run:
+        name: flake8
+        command: venv/bin/flake8 opmon
     - run:
         name: Mypy
         command: venv/bin/mypy opmon

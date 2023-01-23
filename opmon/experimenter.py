@@ -202,7 +202,9 @@ class ExperimentCollection:
     USER_AGENT = "opmon"
 
     @classmethod
-    def from_experimenter(cls, session: requests.Session = None) -> "ExperimentCollection":
+    def from_experimenter(
+        cls, session: Optional[requests.Session] = None
+    ) -> "ExperimentCollection":
         """Fetch all experiments from Experimenter."""
         session = session or requests.Session()
         legacy_experiments_json = retry_get(

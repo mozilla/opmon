@@ -23,7 +23,7 @@ from metric_config_parser.experiment import Experiment
 from metric_config_parser.monitoring import MonitoringSpec
 from pytz import UTC
 
-DEFAULT_CONFIG_REPO = "https://github.com/mozilla/opmon-config"
+DEFAULT_CONFIG_REPO = "https://github.com/mozilla/metric-hub/tree/main/opmon"
 METRIC_HUB_REPO = "https://github.com/mozilla/metric-hub"
 
 

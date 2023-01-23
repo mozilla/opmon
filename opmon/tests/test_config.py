@@ -11,7 +11,7 @@ class TestConfigLoader:
 
     def test_configs_from(self):
         configs_collection = ConfigLoader.with_configs_from(
-            ["https://github.com/mozilla/jetstream-config"]
+            ["https://github.com/mozilla/metric-hub/tree/main/opmon"]
         )
         assert configs_collection.configs is not None
         assert len(configs_collection.configs.configs) == len(ConfigLoader.configs.configs)
@@ -29,6 +29,7 @@ class TestConfigLoader:
     def test_get_data_source(self):
         metric = list(ConfigLoader.configs.definitions[0].spec.metrics.definitions.values())[0]
         platform = ConfigLoader.configs.definitions[0].platform
+
         assert (
             ConfigLoader.configs.get_data_source_definition(metric.data_source.name, platform)
             is not None
