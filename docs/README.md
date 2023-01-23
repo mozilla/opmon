@@ -4,7 +4,7 @@
 
 The diagram above shows the relationship between different parts of the Operational Monitoring system. At a high level, data flows through the system in the following way:
 
-1. Users create project config files as described on [dtmo](https://docs.telemetry.mozilla.org/cookbooks/operational_monitoring.html) in [opmon-config](https://github.com/mozilla/opmon-config)
+1. Users create project config files as described on [dtmo](https://docs.telemetry.mozilla.org/cookbooks/operational_monitoring.html) in [opmon/ in metric-hub](https://github.com/mozilla/metric-hub/tree/main/opmon)
 2. Two daily jobs run in Airflow to process the config files: one to generate + run the ETL and one to generate LookML for views/explores/dashboards
 3. Updated LookML dashboards and explores are available once per day and loading them runs aggregates on the fly by referencing relevant BigQuery tables.
 

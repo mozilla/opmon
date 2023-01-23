@@ -73,7 +73,7 @@ class BigQueryClient:
 
             for part in query:
                 config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **base_kwargs)
-                job = self.client.query(query, config)
+                job = self.client.query(part, config)
                 # block on result
                 job.result()
                 parts.append(job)
