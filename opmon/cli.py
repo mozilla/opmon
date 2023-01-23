@@ -371,7 +371,7 @@ def backfill(
                     continue
 
                 # resolve config by applying platform and custom config specs
-                spec = MonitoringSpec.from_definition_spec(copy.deepcopy(platform_definitions.spec))
+                spec = MonitoringSpec.from_definition_spec(copy.deepcopy(platform_definitions))
                 platform_defaults = ConfigLoader.configs.get_platform_defaults(platform)
                 if platform_defaults is not None:
                     spec.merge(platform_defaults)
@@ -487,13 +487,14 @@ def preview(
     if start_date is None and end_date is None:
         start_date = datetime.today() - timedelta(days=3)
         end_date = datetime.today() - timedelta(days=1)
+        start_date = pytz.utc.localize(start_date)
+        end_date = pytz.utc.localize(end_date)
     elif start_date is None:
         start_date = end_date - timedelta(days=3)
-    else:
+        start_date = pytz.utc.localize(start_date)
+    elif end_date is None:
         end_date = start_date + timedelta(days=3)
-
-    start_date = pytz.utc.localize(start_date)
-    end_date = pytz.utc.localize(end_date)
+        end_date = pytz.utc.localize(end_date)
 
     table = bq_normalize_name(slug)
 

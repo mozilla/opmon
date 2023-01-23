@@ -174,7 +174,7 @@ class Percentile(Statistic):
 
     def _scalar_compute(self, metric: Metric):
         return f"""
-            jackknife_percentile_ci(
+            `moz-fx-data-shared-prod.udf_js.bootstrap_percentile_ci`(
                 {self.percentiles},
                 merge_histogram_values(
                     ARRAY_CONCAT_AGG(
@@ -200,7 +200,7 @@ class Percentile(Statistic):
 
     def _histogram_compute(self, metric: Metric):
         return f"""
-            jackknife_percentile_ci(
+            `moz-fx-data-shared-prod.udf_js.bootstrap_percentile_ci`(
                 {self.percentiles},
                 merge_histogram_values(
                     ARRAY_CONCAT_AGG(
