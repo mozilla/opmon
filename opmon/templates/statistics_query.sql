@@ -2,8 +2,6 @@
 
 {% include 'normalized_sum_udf.sql' %}
 
-{% include 'jackknife_percentile_ci_udf.sql' %}
-
 {% include 'merge_histogram_values_udf.sql' %}
 
 WITH filtered_metrics AS (
