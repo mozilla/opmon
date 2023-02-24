@@ -37,7 +37,7 @@ exceptiongroup==1.1.0
     #   cattrs
     #   pytest
 flake8==6.0.0
-    # via pytest-flake8
+    # via mozilla-opmon
 gitdb==4.0.10
     # via gitpython
 gitpython==3.1.30
@@ -139,13 +139,10 @@ pytest==7.2.1
     #   mozilla-opmon
     #   pytest-black
     #   pytest-cov
-    #   pytest-flake8
     #   pytest-pydocstyle
 pytest-black==0.3.12
     # via mozilla-opmon
 pytest-cov==4.0.0
-    # via mozilla-opmon
-pytest-flake8==1.1.1
     # via mozilla-opmon
 pytest-pydocstyle==2.3.2
     # via mozilla-opmon

@@ -17,7 +17,7 @@ test_dependencies = [
     "pytest-black",
     "pytest-cov",
     "pytest-pydocstyle",
-    "pytest-flake8",
+    "flake8",
     "mypy",
     "types-futures",
     "types-pkg-resources",
