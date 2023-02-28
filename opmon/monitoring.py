@@ -35,7 +35,7 @@ STATISTICS_VIEW_FILENAME = "statistics_view.sql"
 TEMPLATE_FOLDER = PATH / "templates"
 DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
-METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id"]
+METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id", "branch"]
 MAX_DIMENSIONS_PER_METRIC_QUERY = 40
 
 
@@ -116,6 +116,11 @@ class Monitoring:
             return
 
         table_name = f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
+
+        join_keys = METRICS_JOIN_KEYS
+        for dimension in self.config.dimensions:
+            join_keys.append(dimension.name)
+
         self.bigquery.execute(
             self._get_metrics_sql(submission_date=submission_date, table_name=table_name),
             destination_table=f"{table_name}${submission_date:%Y%m%d}",
@@ -123,12 +128,12 @@ class Monitoring:
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
-            join_keys=METRICS_JOIN_KEYS,
+            join_keys=join_keys,
             annotations={
-                    "slug": self.slug,
-                    "type": "metrics_query",
-                    "submission_date": submission_date,
-                },
+                "slug": self.slug,
+                "type": "metrics_query",
+                "submission_date": submission_date,
+            },
         )
 
     def _render_sql(self, template_file: str, render_kwargs: Dict[str, Any]):
@@ -191,7 +196,6 @@ class Monitoring:
             "config": self.config.project,
             "dataset": self.dataset,
             "first_run": first_run,
-            "metrics_per_dataset": metrics_per_dataset,
             "slug": self.slug,
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["metric"],
@@ -212,22 +216,36 @@ class Monitoring:
                     None,
                 )
             ),
+            "dimensions": self.config.dimensions,
         }
 
         sql_filename = METRIC_QUERY_FILENAME
 
         # chunk queries and render multiple times
-        sql = [
-            self._render_sql(sql_filename, {"dimensions": dim_chunk, **render_kwargs})
-            for dim_chunk in (
-                self.config.dimensions[i:next_i]
-                for i in (
-                    list(range(0, len(self.config.dimensions), MAX_DIMENSIONS_PER_METRIC_QUERY))
-                    or [0]  # if there are 0 dimensions, still produce one result
-                )
-                for next_i in [i + MAX_DIMENSIONS_PER_METRIC_QUERY]
-            )
-        ]
+        i = MAX_DIMENSIONS_PER_METRIC_QUERY
+        metrics_chunk: Dict[str, Any] = {}
+        sql = []
+        for data_source, metrics in metrics_per_dataset.items():
+            for metric in metrics:
+                if i <= 0:
+                    sql.append(
+                        self._render_sql(
+                            sql_filename, {"metrics_per_dataset": metrics_chunk, **render_kwargs}
+                        )
+                    )
+                    i = MAX_DIMENSIONS_PER_METRIC_QUERY
+                    metrics_chunk = {}
+
+                if data_source not in metrics_chunk:
+                    metrics_chunk[data_source] = [metric]
+                else:
+                    metrics_chunk[data_source].append(metric)
+                i -= 1
+
+        sql.append(
+            self._render_sql(sql_filename, {"metrics_per_dataset": metrics_chunk, **render_kwargs})
+        )
+
         if len(sql) == 1:
             return sql[0]
         return sql
@@ -395,24 +413,47 @@ class Monitoring:
         if callable(self.before_execute_callback):
             # Before and after are the same query for metrics: there's no
             # modification preparing for dry run.
-            self.before_execute_callback(
-                metrics_sql,
-                None,
-                annotations={
-                    "slug": self.slug,
-                    "type": "validate_metrics_query_before",
-                    "submission_date": self.config.project.start_date,
-                },
-            )
-            self.before_execute_callback(
-                metrics_sql,
-                None,
-                annotations={
-                    "slug": self.slug,
-                    "type": "validate_metrics_query_after",
-                    "submission_date": self.config.project.start_date,
-                },
-            )
+            if isinstance(metrics_sql, list):
+                for idx, query in enumerate(metrics_sql):
+                    self.before_execute_callback(
+                        query,
+                        None,
+                        annotations={
+                            "slug": self.slug,
+                            "type": "validate_metrics_query_before",
+                            "submission_date": self.config.project.start_date,
+                            "part": f"part-{idx}",
+                        },
+                    )
+                self.before_execute_callback(
+                    query,
+                    None,
+                    annotations={
+                        "slug": self.slug,
+                        "type": "validate_metrics_query_after",
+                        "submission_date": self.config.project.start_date,
+                        "part": f"part-{idx}",
+                    },
+                )
+            else:
+                self.before_execute_callback(
+                    metrics_sql,
+                    None,
+                    annotations={
+                        "slug": self.slug,
+                        "type": "validate_metrics_query_before",
+                        "submission_date": self.config.project.start_date,
+                    },
+                )
+                self.before_execute_callback(
+                    metrics_sql,
+                    None,
+                    annotations={
+                        "slug": self.slug,
+                        "type": "validate_metrics_query_after",
+                        "submission_date": self.config.project.start_date,
+                    },
+                )
         dry_run_query(metrics_sql)
 
         dummy_metrics = {}
