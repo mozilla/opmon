@@ -81,6 +81,7 @@ parallelism_option = click.option(
 
 sql_output_dir_option = click.option(
     "--sql-output-dir",
+    "--sql_output_dir",
     type=click.Path(exists=False),
     help="Write generated SQL to given directory",
     required=False,
@@ -317,7 +318,11 @@ def _before_execute_callback(sql_output_dir: Optional[Path], query, job_config, 
     # The submission date is actually a datetime.
     submission_date = annotations["submission_date"].strftime("%Y-%m-%d")
 
-    fname = f"{annotations['slug']}-{annotations['type']}-{submission_date}.sql"
+    part = ""
+    if "part" in annotations:
+        part = f"-{annotations['part']}"
+
+    fname = f"{annotations['slug']}-{annotations['type']}-{submission_date}{part}.sql"
     (sql_output_dir / fname).write_text(query)
 
 

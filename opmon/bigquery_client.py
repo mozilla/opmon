@@ -11,7 +11,7 @@ class BeforeExecuteCallback(Protocol):
     def __call__(
         self,
         query: str,
-        job_config: bigquery.job.QueryJobConfig,
+        job_config: Optional[bigquery.job.QueryJobConfig],
         annotations: Dict[str, Any] = {},
     ) -> None:
         """Invoke before each `execute`.
@@ -21,6 +21,7 @@ class BeforeExecuteCallback(Protocol):
         including a relevant date, query type, etc.
         """
         pass
+
 
 def sql_table_id(table):
     """Get the standard sql format fully qualified id for a table."""
@@ -91,8 +92,13 @@ class BigQueryClient:
             if not join_keys:
                 raise ValueError("multipart query specified without join keys")
 
-            for part in query:
+            for idx, part in enumerate(query):
                 config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **base_kwargs)
+
+                if callable(self.before_execute_callback):
+                    annotations["part"] = f"part-{idx}"
+                    self.before_execute_callback(part, config, annotations)
+
                 job = self.client.query(part, config)
                 # block on result
                 job.result()
@@ -125,12 +131,15 @@ class BigQueryClient:
 
         try:
             config = bigquery.job.QueryJobConfig(default_dataset=bq_dataset, **kwargs)
+
+            if callable(self.before_execute_callback):
+                if len(parts) > 0:
+                    annotations["part"] = "joined"
+                self.before_execute_callback(query, config, annotations)
+
             job = self.client.query(query, config)
             # block on result
             job.result()
-
-            if callable(self.before_execute_callback):
-                self.before_execute_callback(query, config, annotations)
         finally:
             for job in parts:
                 self.client.delete_table(job.destination)
