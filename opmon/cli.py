@@ -81,6 +81,7 @@ parallelism_option = click.option(
 
 sql_output_dir_option = click.option(
     "--sql-output-dir",
+    "--sql_output_dir",
     type=click.Path(exists=False),
     help="Write generated SQL to given directory",
     required=False,
@@ -258,7 +259,7 @@ def run(
         dataset_id,
         derived_dataset_id,
         date,
-        before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
+        before_execute_callback=partial(_before_execute_callback, sql_output_dir),
     )
 
     success = False
@@ -293,7 +294,7 @@ def _run(
     return True
 
 
-def _before_execute_callback(sql_output_dir: Optional[Path], query, job_config, annotations={}):
+def _before_execute_callback(sql_output_dir: Optional[str], query, job_config, annotations={}):
     """Maybe write SQL query to disk.
 
     If `annotations` contain all of `slug`, `submission_date`, and
@@ -317,8 +318,12 @@ def _before_execute_callback(sql_output_dir: Optional[Path], query, job_config, 
     # The submission date is actually a datetime.
     submission_date = annotations["submission_date"].strftime("%Y-%m-%d")
 
-    fname = f"{annotations['slug']}-{annotations['type']}-{submission_date}.sql"
-    (sql_output_dir / fname).write_text(query)
+    part = ""
+    if "part" in annotations:
+        part = f"-{annotations['part']}"
+
+    fname = f"{annotations['slug']}-{annotations['type']}-{submission_date}{part}.sql"
+    (Path(sql_output_dir) / fname).write_text(query)
 
 
 @cli.command()
@@ -462,7 +467,7 @@ def backfill(
                 derived_dataset_id,
                 date,
                 config,
-                before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
+                before_execute_callback=partial(_before_execute_callback, sql_output_dir),
             )
         except Exception as e:
             print(f"Error backfilling {config[0]}: {e}")
@@ -668,7 +673,7 @@ def validate_config(
                 private_config_repos, is_private=True
             ),
             experiment=experiment,
-            before_execute_callback=partial(_before_execute_callback, Path(sql_output_dir)),
+            before_execute_callback=partial(_before_execute_callback, sql_output_dir),
         )
 
         if config_file.parent.name != DEFINITIONS_DIR:
