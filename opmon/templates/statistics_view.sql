@@ -34,6 +34,7 @@ stats AS (
 {% for summary in summaries %}
     SELECT 
         submission_date,
+        TIMESTAMP(submission_date) AS submission_timestamp,
         build_id,
         {% for dimension in dimensions -%}
             {{ dimension.name }},
