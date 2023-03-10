@@ -1,3 +1,5 @@
+from metric_config_parser.monitoring import MonitoringSpec
+
 from opmon.config import ConfigLoader
 
 
@@ -17,7 +19,9 @@ class TestConfigLoader:
         assert len(configs_collection.configs.configs) == len(ConfigLoader.configs.configs)
 
     def test_spec_for_experiment(self):
-        experiment = ConfigLoader.configs.configs[0].slug
+        experiment = next(
+            c.slug for c in ConfigLoader.configs.configs if isinstance(c.spec, MonitoringSpec)
+        )
         assert ConfigLoader.configs.spec_for_project(experiment) is not None
 
     def test_spec_for_nonexisting_experiment(self):
