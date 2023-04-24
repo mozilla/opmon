@@ -272,6 +272,11 @@ class Monitoring:
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
+            annotations={
+                "slug": self.slug,
+                "type": "statistics_query",
+                "submission_date": submission_date,
+            },
         )
 
     def _get_statistics_sql(self, submission_date) -> str:
@@ -373,6 +378,11 @@ class Monitoring:
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
+            annotations={
+                "slug": self.slug,
+                "type": "alerts_query",
+                "submission_date": submission_date,
+            },
         )
 
         print(f"Create alerts view for {self.slug}")
