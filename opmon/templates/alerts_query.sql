@@ -179,7 +179,7 @@ hist_diffs AS (
         "" AS statistic,
         "" AS branch,
         {% for dimension in dimensions -%}
-            NULL AS {{ dimension.name }},
+            SAFE_CAST(NULL AS STRING) AS {{ dimension.name }},
         {% endfor -%}
         NULL AS parameter,
         FALSE AS diff,
@@ -195,7 +195,7 @@ SELECT
     measured_values.statistic,
     measured_values.branch,
     {% for dimension in dimensions -%}
-        measured_values.{{ dimension.name }},
+        SAFE_CAST(measured_values.{{ dimension.name }} AS STRING) AS {{ dimension.name }},
     {% endfor -%}
     SAFE_CAST(thresholds.parameter AS FLOAT64) AS parameter,
     CASE
@@ -295,7 +295,7 @@ SELECT
   statistic,
   branch,
   {% for dimension in dimensions -%}
-    {{ dimension.name }},
+        SAFE_CAST({{ dimension.name }} AS STRING) AS {{ dimension.name }},
   {% endfor -%}
   SAFE_CAST(parameter AS FLOAT64) AS parameter,
   "Significant difference between branches" AS message
@@ -311,7 +311,7 @@ SELECT DISTINCT
     statistic,
     branch,
     {% for dimension in dimensions -%}
-        {{ dimension.name }},
+        SAFE_CAST({{ dimension.name }} AS STRING) AS {{ dimension.name }},
     {% endfor -%}
     SAFE_CAST(parameter AS FLOAT64) AS parameter,
     "Significant difference to historical data" AS message
