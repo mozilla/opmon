@@ -152,7 +152,7 @@ pytz==2022.7.1
     # via
     #   mozilla-jetstream-config-parser
     #   mozilla-opmon
-requests==2.28.2
+requests==2.31.0
     # via
     #   google-api-core
     #   google-cloud-bigquery
