@@ -434,9 +434,10 @@ def backfill(
                 if platform_defaults is not None:
                     spec.merge(platform_defaults)
 
-                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
-                if platform_defaults is not None:
-                    spec.merge(platform_defaults)
+                if platform == DEFAULT_PLATFORM:
+                    platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                    if platform_defaults is not None:
+                        spec.merge(platform_defaults)
                 config = (rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs))
                 break
 
