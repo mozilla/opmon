@@ -35,6 +35,7 @@ Options:
 
 Commands:
   backfill         Backfill a specific project.
+  preview          Create a preview for a specific project based on a subset of data.
   run              Execute the monitoring ETL for a specific date.
   validate_config  Validate config files.
 ```
