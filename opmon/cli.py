@@ -207,9 +207,10 @@ def run(
                 spec.merge(platform_defaults)
 
             if experiment and experiment.is_rollout:
-                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
-                if platform_defaults is not None:
-                    spec.merge(platform_defaults)
+                if platform == DEFAULT_PLATFORM:
+                    platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                    if platform_defaults is not None:
+                        spec.merge(platform_defaults)
         spec.merge(external_config.spec)
 
         configs.append((external_config.slug, spec.resolve(experiment, ConfigLoader.configs)))
@@ -237,9 +238,10 @@ def run(
                 if platform_defaults is not None:
                     spec.merge(platform_defaults)
 
-                platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
-                if platform_defaults is not None:
-                    spec.merge(platform_defaults)
+                if platform == DEFAULT_PLATFORM:
+                    platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
+                    if platform_defaults is not None:
+                        spec.merge(platform_defaults)
 
                 configs.append((rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs)))
 
