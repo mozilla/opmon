@@ -518,7 +518,7 @@ class Monitoring:
         # The original query is more useful for inspection.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql[0],
+                statistics_sql[0], # TODO handle list or confirm first query is sufficient
                 None,
                 annotations={
                     "slug": self.slug,
@@ -540,7 +540,7 @@ class Monitoring:
         # But the modified query is what is actually submitted.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql[0],
+                statistics_sql[0], # TODO handle list or confirm first query is sufficient
                 None,
                 annotations={
                     "slug": self.slug,
