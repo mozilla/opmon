@@ -512,11 +512,13 @@ class Monitoring:
         statistics_sql = self._get_statistics_sql(
             submission_date=self.config.project.start_date,  # type: ignore
         )
+        if isinstance(statistics_sql, str):
+            statistics_sql = [statistics_sql]
 
         # The original query is more useful for inspection.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql,
+                statistics_sql[0],
                 None,
                 annotations={
                     "slug": self.slug,
@@ -524,8 +526,6 @@ class Monitoring:
                     "submission_date": self.config.project.start_date,
                 },
             )
-        if isinstance(statistics_sql, str):
-            statistics_sql = [statistics_sql]
         for i in range(len(statistics_sql)):
             statistics_sql[i] = statistics_sql[i].replace(
                 f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
@@ -535,14 +535,12 @@ class Monitoring:
                 + f"_v{SCHEMA_VERSIONS['metric']}`",
                 metrics_table_dummy,
             )
-        if len(statistics_sql) == 1:
-            statistics_sql = statistics_sql[0]
         print(f"Dry run statistics SQL for {self.normalized_slug}")
 
         # But the modified query is what is actually submitted.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql,
+                statistics_sql[0],
                 None,
                 annotations={
                     "slug": self.slug,
@@ -550,6 +548,8 @@ class Monitoring:
                     "submission_date": self.config.project.start_date,
                 },
             )
+        if len(statistics_sql) == 1:
+            statistics_sql = statistics_sql[0]
         dry_run_query(statistics_sql)
 
         total_alerts = 0
