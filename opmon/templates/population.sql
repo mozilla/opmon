@@ -47,7 +47,18 @@ WITH population AS (
         {% endif %}
     FROM
         {%- if config.population.data_source %}
-        {{ config.population.data_source.from_expr_for(app_id) }}
+        (
+          -- filter out clients that send more than 10000 pings
+          SELECT * 
+          FROM {{ config.population.data_source.from_expr_for(app_id) }} 
+          WHERE {{ config.population.data_source.client_id_column }} NOT IN (
+            SELECT {{ config.population.data_source.client_id_column }} AS client_id
+            FROM {{ config.population.data_source.from_expr_for(app_id) }} 
+            WHERE {{ config.population.data_source.submission_date_column }} = DATE('{{ submission_date }}')
+            GROUP BY client_id
+            HAVING COUNT(*) > 10000
+          )
+        )
         {%- else %}
         None
         {%- endif %}
