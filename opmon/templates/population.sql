@@ -55,6 +55,9 @@ WITH population AS (
             SELECT {{ config.population.data_source.client_id_column }} AS client_id
             FROM {{ config.population.data_source.from_expr_for(app_id) }} 
             WHERE {{ config.population.data_source.submission_date_column }} = DATE('{{ submission_date }}')
+            -- client_id is set to NULL when we want to compute metrics across all clients (default is per client)
+            -- keep 'NULL' clients
+            AND {{ config.population.data_source.client_id_column }} IS NOT NULL
             GROUP BY client_id
             HAVING COUNT(*) > 10000
           )

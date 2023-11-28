@@ -31,7 +31,9 @@ merged_metrics_{{ data_source }} AS (
         ) AS p
     ON
         {{ metrics[0].data_source.submission_date_column }} = p.population_submission_date
+        {% if metrics[0].data_source.client_id_column != "NULL" %}
         AND {{ metrics[0].data_source.client_id_column }} = p.population_client_id
+        {% endif %}
         {% if config.xaxis.value == "submission_date" %}
         AND p.population_build_id IS NULL
         {% else %}
@@ -71,7 +73,9 @@ joined_metrics AS (
   LEFT JOIN merged_metrics_{{ data_source }}
   ON
     merged_metrics_{{ data_source }}.submission_date = population.submission_date AND
+    {% if metrics[0].data_source.client_id_column != "NULL" %}
     merged_metrics_{{ data_source }}.client_id = population.client_id AND
+    {% endif %}
     (population.build_id IS NULL OR merged_metrics_{{ data_source }}.build_id = population.build_id)
   {% endfor %}
 ),
