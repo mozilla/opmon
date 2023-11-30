@@ -8,7 +8,7 @@
 merged_metrics_{{ data_source }} AS (
     SELECT
         DATE({{ metrics[0].data_source.submission_date_column }}) AS submission_date,
-        {{ metrics[0].data_source.client_id_column }} AS client_id,
+        CAST({{ metrics[0].data_source.client_id_column }} AS STRING) AS client_id,
         p.population_build_id AS build_id,
         {% for metric in metrics -%}
         {{ metric.select_expression }} AS {{ metric.name }},
