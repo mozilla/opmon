@@ -1,7 +1,7 @@
 WITH population AS (
     SELECT
         DATE({{ config.population.data_source.submission_date_column }}) AS submission_date,
-        {{ config.population.data_source.client_id_column }} AS client_id,
+        CAST({{ config.population.data_source.client_id_column }} AS STRING) AS client_id,
         {% if config.xaxis.value == "submission_date" %}
         NULL AS build_id,
         {% else %}
