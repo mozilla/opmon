@@ -36,3 +36,15 @@ app_id = { release = "org.mozilla.focus", beta = "org.mozilla.focus.beta", night
 [platform.monitor_cirrus]
 is_glean_app = true
 app_id = { release = "monitor.cirrus" }
+
+[platform.mozilla_vpn]
+is_glean_app = true
+app_id = { release = "mozillavpn" }
+
+[platform.mozilla_vpn_ios]
+is_glean_app = true
+app_id = { release = "org.mozilla.ios.FirefoxVPN" }
+
+[platform.mozilla_vpn_android]
+is_glean_app = true
+app_id = { release = "org.mozilla.firefox.vpn" }
