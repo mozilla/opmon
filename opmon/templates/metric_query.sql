@@ -10,34 +10,46 @@ merged_metrics_{{ data_source }} AS (
         DATE({{ metrics[0].data_source.submission_date_column }}) AS submission_date,
         CAST({{ metrics[0].data_source.client_id_column }} AS STRING) AS client_id,
         p.population_build_id AS build_id,
+        {% if config.population.group_by_dimension -%}
+        {{ config.population.group_by_dimension.select_expression }} AS {{ config.population.group_by_dimension.name }},
+        {% endif -%}
         {% for metric in metrics -%}
         {{ metric.select_expression }} AS {{ metric.name }},
         {% endfor -%}
     FROM
-        {{ metrics[0].data_source.from_expr_for(app_id) }}
+        {{ metrics[0].data_source.from_expr_for(app_id) }} AS m
     RIGHT JOIN
         (
             SELECT
                 client_id AS population_client_id,
                 submission_date AS population_submission_date,
                 build_id AS population_build_id,
+                {% if config.population.group_by_dimension -%}
+                {{ config.population.group_by_dimension.select_expression }} AS {{ config.population.group_by_dimension.name }},
+                {% endif -%}
             FROM
                 population
             GROUP BY
-                population_client_id,
                 population_submission_date,
-                population_build_id
+                population_client_id,
+                population_build_id,
+                {% if config.population.group_by_dimension -%}
+                {{ config.population.group_by_dimension.name }},
+                {% endif -%}
 
         ) AS p
     ON
-        {{ metrics[0].data_source.submission_date_column }} = p.population_submission_date
+        m.{{ metrics[0].data_source.submission_date_column }} = p.population_submission_date
         {% if metrics[0].data_source.client_id_column != "NULL" %}
-        AND {{ metrics[0].data_source.client_id_column }} = p.population_client_id
+        AND m.{{ metrics[0].data_source.client_id_column }} = p.population_client_id
         {% endif %}
         {% if config.xaxis.value == "submission_date" %}
         AND p.population_build_id IS NULL
         {% else %}
-        AND {{ metrics[0].data_source.build_id_column }} = p.population_build_id
+        AND m.{{ metrics[0].data_source.build_id_column }} = p.population_build_id
+        {% endif %}
+        {% if config.population.group_by_dimension -%}
+        AND m.{{ config.population.group_by_dimension.name }} = p.{{ config.population.group_by_dimension.name }}
         {% endif %}
     WHERE
         {% if config.xaxis.value == "submission_date" %}
@@ -49,7 +61,10 @@ merged_metrics_{{ data_source }} AS (
     GROUP BY
         submission_date,
         build_id,
-        client_id
+        client_id,
+        {% if config.population.group_by_dimension -%}
+        {{ config.population.group_by_dimension.name }},
+        {% endif %}
 ),
 {% endfor %}
 
@@ -77,6 +92,9 @@ joined_metrics AS (
     merged_metrics_{{ data_source }}.client_id = population.client_id AND
     {% endif %}
     (population.build_id IS NULL OR merged_metrics_{{ data_source }}.build_id = population.build_id)
+    {% if config.population.group_by_dimension -%}
+    AND merged_metrics_{{ data_source }}.{{ config.population.group_by_dimension.name }} = population.{{ config.population.group_by_dimension.name }}
+    {% endif %}
   {% endfor %}
 ),
 
