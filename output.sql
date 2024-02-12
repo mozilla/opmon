@@ -102,6 +102,7 @@ merged_metrics_session_duration_table AS (
         DATE(submission_date) AS submission_date,
         CAST(client_id AS STRING) AS client_id,
         p.population_build_id AS build_id,
+        app AS app,
         AVG(session_duration) AS avg_session_duration,
         SUM(session_duration) AS avg_sum_session_duration,
         FROM
@@ -152,12 +153,14 @@ merged_metrics_session_duration_table AS (
                 client_id AS population_client_id,
                 submission_date AS population_submission_date,
                 build_id AS population_build_id,
+                app AS population_app,
                 FROM
                 population
             GROUP BY
                 population_submission_date,
                 population_client_id,
                 population_build_id
+                ,population_app
                 ) AS p
     ON
         submission_date = p.population_submission_date
@@ -167,6 +170,7 @@ merged_metrics_session_duration_table AS (
         
         AND p.population_build_id IS NULL
         
+        AND app = p.population_app
         
     WHERE
         
@@ -176,6 +180,7 @@ merged_metrics_session_duration_table AS (
         submission_date,
         build_id,
         client_id
+        ,app
         
 ),
 merged_metrics_base_table AS (
@@ -183,6 +188,7 @@ merged_metrics_base_table AS (
         DATE(submission_date) AS submission_date,
         CAST(client_id AS STRING) AS client_id,
         p.population_build_id AS build_id,
+        app AS app,
         COUNT(DISTINCT client_id) AS active_subscribers,
         COUNT(DISTINCT session_id) AS session_count,
         FROM
@@ -218,12 +224,14 @@ merged_metrics_base_table AS (
                 client_id AS population_client_id,
                 submission_date AS population_submission_date,
                 build_id AS population_build_id,
+                app AS population_app,
                 FROM
                 population
             GROUP BY
                 population_submission_date,
                 population_client_id,
                 population_build_id
+                ,population_app
                 ) AS p
     ON
         submission_date = p.population_submission_date
@@ -233,6 +241,7 @@ merged_metrics_base_table AS (
         
         AND p.population_build_id IS NULL
         
+        AND app = p.population_app
         
     WHERE
         
@@ -242,6 +251,7 @@ merged_metrics_base_table AS (
         submission_date,
         build_id,
         client_id
+        ,app
         
 ),
 
@@ -267,6 +277,7 @@ joined_metrics AS (
     merged_metrics_session_duration_table.client_id = population.client_id AND
     
     (population.build_id IS NULL OR merged_metrics_session_duration_table.build_id = population.build_id)
+    AND merged_metrics_session_duration_table.app = population.app
     
   LEFT JOIN merged_metrics_base_table
   ON
@@ -275,6 +286,7 @@ joined_metrics AS (
     merged_metrics_base_table.client_id = population.client_id AND
     
     (population.build_id IS NULL OR merged_metrics_base_table.build_id = population.build_id)
+    AND merged_metrics_base_table.app = population.app
     
   
 ),
