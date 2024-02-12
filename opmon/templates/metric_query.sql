@@ -32,9 +32,9 @@ merged_metrics_{{ data_source }} AS (
             GROUP BY
                 population_submission_date,
                 population_client_id,
-                population_build_id,
+                population_build_id
                 {% if config.population.group_by_dimension -%}
-                population_{{ config.population.group_by_dimension.name }}
+                ,population_{{ config.population.group_by_dimension.name }}
                 {% endif -%}
 
         ) AS p
@@ -61,9 +61,9 @@ merged_metrics_{{ data_source }} AS (
     GROUP BY
         submission_date,
         build_id,
-        client_id,
+        client_id
         {% if config.population.group_by_dimension -%}
-        {{ config.population.group_by_dimension.name }}
+        ,{{ config.population.group_by_dimension.name }}
         {% endif %}
 ),
 {% endfor %}
