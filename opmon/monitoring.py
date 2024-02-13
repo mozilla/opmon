@@ -4,6 +4,7 @@ import itertools
 import os
 import re
 from asyncio.log import logger
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -37,6 +38,8 @@ DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
 METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id", "branch"]
 MAX_DIMENSIONS_PER_METRIC_QUERY = 40
+STATISTICS_JOIN_KEYS = ["client_id", "submission_date", "build_id", "branch"]
+MAX_DIMENSIONS_PER_STATISTICS_QUERY = 40
 
 
 @attr.s(auto_attribs=True)
@@ -117,7 +120,7 @@ class Monitoring:
 
         table_name = f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
 
-        join_keys = METRICS_JOIN_KEYS
+        join_keys = deepcopy(METRICS_JOIN_KEYS)
         for dimension in self.config.dimensions:
             join_keys.append(dimension.name)
 
@@ -272,9 +275,10 @@ class Monitoring:
             time_partitioning="submission_date",
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
+            join_keys=STATISTICS_JOIN_KEYS,
         )
 
-    def _get_statistics_sql(self, submission_date) -> str:
+    def _get_statistics_sql(self, submission_date) -> Union[str, List[str]]:
         """Return the SQL to run the statistics."""
         render_kwargs = {
             "gcp_project": self.project,
@@ -282,17 +286,36 @@ class Monitoring:
             "derived_dataset": self.derived_dataset,
             "config": self.config.project,
             "normalized_slug": self.normalized_slug,
-            "dimensions": self.config.dimensions,
-            "dimension_permutations": [
-                list(i)
-                for i in itertools.product([True, False], repeat=len(self.config.dimensions))
-                if any(i)
-            ],
             "summaries": [Summary.from_config(summary) for summary in self.config.metrics],
             "submission_date": submission_date,
             "table_version": SCHEMA_VERSIONS["metric"],
         }
-        sql = self._render_sql(STATISTICS_QUERY_FILENAME, render_kwargs)
+
+        # chunk queries and render multiple times
+        sql = [
+            self._render_sql(
+                STATISTICS_QUERY_FILENAME,
+                {
+                    "dimensions": dim_chunk,
+                    "dimension_permutations": [
+                        list(i)
+                        for i in itertools.product([True, False], repeat=len(dim_chunk))
+                        if any(i)
+                    ],
+                    **render_kwargs,
+                },
+            )
+            for dim_chunk in (
+                self.config.dimensions[i:next_i]
+                for i in (
+                    list(range(0, len(self.config.dimensions), MAX_DIMENSIONS_PER_STATISTICS_QUERY))
+                    or [0]  # if there are 0 dimensions, still produce one result
+                )
+                for next_i in [i + MAX_DIMENSIONS_PER_STATISTICS_QUERY]
+            )
+        ]
+        if len(sql) == 1:
+            return sql[0]
         return sql
 
     def _get_statistics_view_sql(self) -> str:
@@ -489,11 +512,13 @@ class Monitoring:
         statistics_sql = self._get_statistics_sql(
             submission_date=self.config.project.start_date,  # type: ignore
         )
+        if isinstance(statistics_sql, str):
+            statistics_sql = [statistics_sql]
 
         # The original query is more useful for inspection.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql,
+                statistics_sql[0], # TODO handle list or confirm first query is sufficient
                 None,
                 annotations={
                     "slug": self.slug,
@@ -501,21 +526,21 @@ class Monitoring:
                     "submission_date": self.config.project.start_date,
                 },
             )
-
-        statistics_sql = statistics_sql.replace(
-            f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
-        )
-        statistics_sql = statistics_sql.replace(
-            f"`{self.project}.{self.derived_dataset}.{self.normalized_slug}"
-            + f"_v{SCHEMA_VERSIONS['metric']}`",
-            metrics_table_dummy,
-        )
+        for i in range(len(statistics_sql)):
+            statistics_sql[i] = statistics_sql[i].replace(
+                f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
+            )
+            statistics_sql[i] = statistics_sql[i].replace(
+                f"`{self.project}.{self.derived_dataset}.{self.normalized_slug}"
+                + f"_v{SCHEMA_VERSIONS['metric']}`",
+                metrics_table_dummy,
+            )
         print(f"Dry run statistics SQL for {self.normalized_slug}")
 
         # But the modified query is what is actually submitted.
         if callable(self.before_execute_callback):
             self.before_execute_callback(
-                statistics_sql,
+                statistics_sql[0], # TODO handle list or confirm first query is sufficient
                 None,
                 annotations={
                     "slug": self.slug,
@@ -523,6 +548,8 @@ class Monitoring:
                     "submission_date": self.config.project.start_date,
                 },
             )
+        if len(statistics_sql) == 1:
+            statistics_sql = statistics_sql[0]
         dry_run_query(statistics_sql)
 
         total_alerts = 0
