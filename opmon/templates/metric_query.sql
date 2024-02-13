@@ -27,15 +27,14 @@ merged_metrics_{{ data_source }} AS (
                 {% if config.population.group_by_dimension -%}
                 {{ config.population.group_by_dimension.select_expression }} AS population_{{ config.population.group_by_dimension.name }},
                 {% endif -%}
+                {% if config.population.group_by_dimension -%}
+                {{ config.population.group_by_dimension.select_expression }} AS population_{{ config.population.group_by_dimension.name }},
+                {% endif -%}
             FROM
                 population
             GROUP BY
                 population_submission_date,
-                population_client_id,
-                population_build_id,
-                {% if config.population.group_by_dimension -%}
-                population_{{ config.population.group_by_dimension.name }}
-                {% endif -%}
+                population_build_id
 
         ) AS p
     ON
@@ -61,9 +60,9 @@ merged_metrics_{{ data_source }} AS (
     GROUP BY
         submission_date,
         build_id,
-        client_id,
+        client_id
         {% if config.population.group_by_dimension -%}
-        {{ config.population.group_by_dimension.name }}
+        ,{{ config.population.group_by_dimension.name }}
         {% endif %}
 ),
 {% endfor %}
