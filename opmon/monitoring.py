@@ -37,6 +37,7 @@ DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
 METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id", "branch"]
 MAX_DIMENSIONS_PER_METRIC_QUERY = 40
+TABLE_EXPIRATION_MS = 780 * pow(10, 10)  # expiration set to 780 days
 
 
 @attr.s(auto_attribs=True)
@@ -126,6 +127,7 @@ class Monitoring:
             destination_table=f"{table_name}${submission_date:%Y%m%d}",
             clustering=["build_id"],
             time_partitioning="submission_date",
+            partition_expiration_ms=TABLE_EXPIRATION_MS,
             write_disposition=bigquery.job.WriteDisposition.WRITE_TRUNCATE,
             dataset=self.derived_dataset,
             join_keys=join_keys,
