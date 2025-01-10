@@ -77,6 +77,12 @@ class Monitoring:
             print(f"Skipping {self.slug}")
             return True
 
+        try:
+            self._check_runnable(submission_date)
+        except Exception as e:
+            print(f"Failed to run opmon project: {e}")
+            return
+
         print(f"Run metrics query for {self.slug}")
         self._run_metrics_sql(submission_date)
 
@@ -190,6 +196,8 @@ class Monitoring:
                     first_run = True
                 else:
                     first_run = False
+
+        print(first_run)
 
         render_kwargs = {
             "header": "-- Generated via opmon\n",
