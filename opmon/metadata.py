@@ -69,7 +69,7 @@ class Metadata:
                 config.project
                 and config.project.end_date
                 and config.project.start_date
-                and config.project.end_date <= config.project.start_date
+                and config.project.end_date < config.project.start_date
             ):
                 continue
 
