@@ -37,7 +37,7 @@ DATA_TYPES = {"histogram", "scalar"}  # todo: enum
 SCHEMA_VERSIONS = {"metric": 1, "statistic": 2, "alert": 2}
 METRICS_JOIN_KEYS = ["client_id", "submission_date", "build_id", "branch"]
 MAX_DIMENSIONS_PER_METRIC_QUERY = 40
-TABLE_EXPIRATION_MS = 67392000000  # expiration set to 780 days
+TABLE_EXPIRATION_MS = 66960000000  # expiration set to 775 days
 
 
 @attr.s(auto_attribs=True)
