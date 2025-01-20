@@ -1,0 +1,47 @@
+name: OpMon Build and Deploy
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.10
+    steps:
+    - uses: actions/checkout@v4.1.0
+    - name: restore_cache
+      uses: actions/cache@v3.3.2
+      with:
+        key: python-packages-v1-{{ .Branch }}-{{ checksum "requirements.in" }}-{{ checksum "requirements.txt" }}
+        path: venv/
+        restore-keys: |-
+          python-packages-v1-{{ .Branch }}-{{ checksum "requirements.in" }}-{{ checksum "requirements.txt" }}
+          python-packages-v1-{{ .Branch }}-{{ checksum "requirements.in" }}-
+          python-packages-v1-{{ .Branch }}-
+          python-packages-v1-
+    - name: Build
+      run: |-
+        python3.10 -m venv venv/
+        venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
+    - name: PyTest
+      run: venv/bin/pytest --black --pydocstyle --ignore=opmon/tests/integration/
+    - name: isort
+      run: venv/bin/isort --check opmon
+    - name: flake8
+      run: venv/bin/flake8 opmon
+    - name: Mypy
+      run: venv/bin/mypy opmon
+    - name: Build
+      run: |-
+        python3.10 -m venv venv/
+        venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
+     - name: Push the Docker image to GAR
+      uses: mozilla-it/deploy-actions/docker-push@v3.11.1
+      with:
+        workload_identity_pool_project_number: ${{ vars.GCPV2_WORKLOAD_IDENTITY_POOL_PROJECT_NUMBER }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
