@@ -50,3 +50,5 @@ jobs:
         workload_identity_pool_project_number: ${{ vars.GCPV2_WORKLOAD_IDENTITY_POOL_PROJECT_NUMBER }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
         local_image: opmon
+        image_repo_host: gcr.io
+        docker_image_path: moz-fx-data-experiments/opmon
