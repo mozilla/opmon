@@ -9,6 +9,10 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write
     runs-on: ubuntu-latest
     container:
       image: python:3.10
@@ -45,3 +49,4 @@ jobs:
       with:
         workload_identity_pool_project_number: ${{ vars.GCPV2_WORKLOAD_IDENTITY_POOL_PROJECT_NUMBER }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
+        local_image: opmon
