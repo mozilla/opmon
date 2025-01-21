@@ -47,7 +47,6 @@ jobs:
     - name: Push the Docker image to GAR
       uses: mozilla-it/deploy-actions/docker-push@v3.11.1
       with:
-        workload_identity_pool_project_number: ${{ secrets.WORKLOAD_IDENTITY_POOL_PROJECT_NUMBER }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
         local_image: opmon:latest
         image_repo_host: us-docker.pkg.dev
