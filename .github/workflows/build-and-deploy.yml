@@ -14,10 +14,12 @@ jobs:
       deployments: write
       id-token: write
     runs-on: ubuntu-latest
-    container:
-      image: python:3.10
     steps:
     - uses: actions/checkout@v4.1.0
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.10
     - name: restore_cache
       uses: actions/cache@v3.3.2
       with:
