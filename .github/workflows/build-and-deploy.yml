@@ -52,3 +52,4 @@ jobs:
         local_image: opmon:latest
         image_repo_host: us-docker.pkg.dev
         docker_image_path: moz-fx-data-experiments/opmon
+        
