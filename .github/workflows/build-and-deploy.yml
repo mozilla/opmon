@@ -53,7 +53,7 @@ jobs:
       with:
         project_id: moz-fx-data-experiments
         local_image: opmon
-        image_repo_host: us-docker.pkg.dev
+        image_repo_host: gcr.io
         image_repo_path: moz-fx-data-experiments/opmon
         workload_identity_pool_project_number: ${{ vars.GCPV2_WORKLOAD_IDENTITY_POOL_PROJECT_NUMBER }}
         
