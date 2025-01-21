@@ -41,13 +41,11 @@ jobs:
       run: venv/bin/flake8 opmon
     - name: Mypy
       run: venv/bin/mypy opmon
-    - name: Build
-      run: |-
-        python3.10 -m venv venv/
-        venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
     - name: Build the Docker image
+      if: github.ref == 'refs/heads/main'
       run: docker build . -t opmon
     - name: Push the Docker image to GAR
+      if: github.ref == 'refs/heads/main'
       uses: mozilla-it/deploy-actions/docker-push@v3.11.1
       with:
         project_id: moz-fx-data-experiments
