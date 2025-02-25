@@ -20,11 +20,11 @@ test_dependencies = [
     "flake8",
     "mypy",
     "types-futures",
-    "types-pkg-resources",
     "types-protobuf",
     "types-pytz",
     "types-PyYAML",
     "types-requests",
+    "types-setuptools",
     "types-six",
     "types-toml",
 ]

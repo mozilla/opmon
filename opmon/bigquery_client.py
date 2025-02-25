@@ -1,4 +1,5 @@
 """BigQuery handler."""
+
 from typing import Any, Dict, Iterable, List, Optional, Protocol, Union
 
 import attr

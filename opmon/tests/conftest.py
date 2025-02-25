@@ -1,4 +1,5 @@
 """Test configs."""
+
 import pytest
 
 

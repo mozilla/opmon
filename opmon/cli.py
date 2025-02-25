@@ -1,4 +1,5 @@
 """OpMon CLI."""
+
 import copy
 import logging
 import os
