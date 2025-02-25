@@ -210,20 +210,26 @@ class Monitoring:
             "normalized_slug": self.normalized_slug,
             "table_version": SCHEMA_VERSIONS["metric"],
             "is_glean_app": PLATFORM_CONFIGS[
-                self.config.project.app_name or "firefox_desktop"
-                if self.config.project
-                else "firefox_desktop"
-            ].is_glean_app,
-            "app_id": self._app_id_to_bigquery_dataset(
-                PLATFORM_CONFIGS[
+                (
                     self.config.project.app_name or "firefox_desktop"
                     if self.config.project
                     else "firefox_desktop"
+                )
+            ].is_glean_app,
+            "app_id": self._app_id_to_bigquery_dataset(
+                PLATFORM_CONFIGS[
+                    (
+                        self.config.project.app_name or "firefox_desktop"
+                        if self.config.project
+                        else "firefox_desktop"
+                    )
                 ].app_id.get(
                     # mypy doesn't recognize the enum value as str, so ignore
-                    self.config.project.population.channel.value  # type: ignore
-                    if self.config.project.population.channel
-                    else None,
+                    (
+                        self.config.project.population.channel.value  # type: ignore
+                        if self.config.project.population.channel
+                        else None
+                    ),
                     None,
                 )
             ),
