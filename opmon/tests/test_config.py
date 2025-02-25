@@ -25,14 +25,17 @@ class TestConfigLoader:
         assert ConfigLoader.configs.spec_for_project(experiment) is not None
 
     def test_spec_for_nonexisting_experiment(self):
-        assert ConfigLoader.configs.spec_for_project("non_exisiting") is None
+        assert ConfigLoader.configs.spec_for_project("non_existing") is None
 
     def test_get_nonexisting_outcome(self):
         assert ConfigLoader.configs.spec_for_outcome("non_existing", "foo") is None
 
     def test_get_data_source(self):
-        metric = list(ConfigLoader.configs.definitions[0].spec.metrics.definitions.values())[0]
-        platform = ConfigLoader.configs.definitions[0].platform
+        definition = [d for d in ConfigLoader.configs.definitions if d.platform != "functions"][0]
+        metric = [
+            m for m in definition.spec.metrics.definitions.values() if m.data_source is not None
+        ][0]
+        platform = definition.platform
 
         assert (
             ConfigLoader.configs.get_data_source_definition(metric.data_source.name, platform)
