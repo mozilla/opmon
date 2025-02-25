@@ -220,7 +220,8 @@ class Monitoring:
                     if self.config.project
                     else "firefox_desktop"
                 ].app_id.get(
-                    self.config.project.population.channel.value
+                    # mypy doesn't recognize the enum value as str, so ignore
+                    self.config.project.population.channel.value  # type: ignore
                     if self.config.project.population.channel
                     else None,
                     None,
@@ -240,7 +241,8 @@ class Monitoring:
                 if i <= 0:
                     sql.append(
                         self._render_sql(
-                            sql_filename, {"metrics_per_dataset": metrics_chunk, **render_kwargs}
+                            sql_filename,
+                            {"metrics_per_dataset": metrics_chunk, **render_kwargs},
                         )
                     )
                     i = MAX_DIMENSIONS_PER_METRIC_QUERY
@@ -513,7 +515,8 @@ class Monitoring:
             )
 
         statistics_sql = statistics_sql.replace(
-            f"`{self.project}.{self.dataset}.{self.normalized_slug}`", metrics_table_dummy
+            f"`{self.project}.{self.dataset}.{self.normalized_slug}`",
+            metrics_table_dummy,
         )
         statistics_sql = statistics_sql.replace(
             f"`{self.project}.{self.derived_dataset}.{self.normalized_slug}"
