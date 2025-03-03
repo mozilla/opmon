@@ -105,9 +105,11 @@ class ExperimentV1:
             app_name="firefox_desktop",
             app_id="firefox-desktop",
             boolean_pref=self.pref_name,
-            channel=Channel(self.firefox_channel.lower())
-            if self.firefox_channel and Channel.has_value(self.firefox_channel.lower())
-            else None,
+            channel=(
+                Channel(self.firefox_channel.lower())
+                if self.firefox_channel and Channel.has_value(self.firefox_channel.lower())
+                else None
+            ),
             is_rollout=(self.type == "rollout"),
         )
 
@@ -165,13 +167,15 @@ class ExperimentV6:
             experimenter_slug=None,
             name=self.userFacingName,
             type="v6",
-            status="Live"
-            if (
-                self.endDate
-                and pytz.utc.localize(self.endDate) >= pytz.utc.localize(dt.datetime.now())
-            )
-            or self.endDate is None
-            else "Complete",
+            status=(
+                "Live"
+                if (
+                    self.endDate
+                    and pytz.utc.localize(self.endDate) >= pytz.utc.localize(dt.datetime.now())
+                )
+                or self.endDate is None
+                else "Complete"
+            ),
             start_date=pytz.utc.localize(self.startDate) if self.startDate else None,
             end_date=pytz.utc.localize(self.endDate) if self.endDate else None,
             branches=self.branches,
@@ -179,9 +183,9 @@ class ExperimentV6:
             app_name=self.appName,
             app_id=self.appId,
             boolean_pref=None,
-            channel=Channel(self.channel)
-            if self.channel and Channel.has_value(self.channel)
-            else None,
+            channel=(
+                Channel(self.channel) if self.channel and Channel.has_value(self.channel) else None
+            ),
             is_rollout=self.isRollout if self.isRollout else (len(self.branches) == 1),
         )
 

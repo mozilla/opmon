@@ -8,7 +8,6 @@ Calling .resolve(config_spec, ConfigLoader.configs) on a Spec object produces a
 concrete resolved Configuration class.
 """
 
-
 import datetime as dt
 from typing import List, Optional, Union
 
