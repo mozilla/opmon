@@ -30,19 +30,19 @@ EXPERIMENTER_FIXTURE_V8 = r"""
     "namespace":"bug-1629098-rapid-please-reject-me-beta-86",
     "start":0,
     "count":100,
-    "total":10000 
+    "total":10000
   },
   "startDate":"2020-07-29",
   "endDate":null,
   "branches":[{
       "slug":"treatment",
       "ratio":1,
-      "feature": {"featureId": "foo", "enabled": false, "value": null}    
+      "feature": {"featureId": "foo", "enabled": false, "value": null}
     },
     {
       "slug":"control",
       "ratio":1,
-      "feature": {"featureId": "foo", "enabled": false, "value": null}    
+      "feature": {"featureId": "foo", "enabled": false, "value": null}
     }
   ],
   "referenceBranch":"control",
@@ -51,7 +51,7 @@ EXPERIMENTER_FIXTURE_V8 = r"""
 },
 {
   "schemaVersion": "1",
-  "application": "firefox-desktop",   
+  "application": "firefox-desktop",
   "id":"bug-1629000-rapid-testing-rapido-intake-1-release-79",
     "slug":"bug-1629000-rapid-testing-rapido-intake-1-release-79",
     "userFacingName":"testing rapido intake 1",
@@ -74,18 +74,18 @@ EXPERIMENTER_FIXTURE_V8 = r"""
     "branches":[{
       "slug":"treatment",
       "ratio":1,
-      "feature": {"featureId": "foo", "enabled": false, "value": null}     
+      "feature": {"featureId": "foo", "enabled": false, "value": null}
       },
       {
         "slug":"control",
         "ratio":1,
-        "feature": {"featureId": "foo", "enabled": false, "value": null}   
+        "feature": {"featureId": "foo", "enabled": false, "value": null}
     }],
   "referenceBranch":"control",
   "filter_expression":"env.version|versionCompare('79.0') >= 0",
   "targeting":""
 },
-{   
+{
   "id":null,
     "slug":null,
     "userFacingName":"some invalid experiment",
@@ -107,7 +107,7 @@ EXPERIMENTER_FIXTURE_V8 = r"""
   "targeting":null
 }
 ]
-"""
+"""  # noqa: E501
 
 FENIX_EXPERIMENT_FIXTURE = """
 {
@@ -152,7 +152,7 @@ FENIX_EXPERIMENT_FIXTURE = """
   "referenceBranch": "control",
   "featureIds": []
 }
-"""
+"""  # noqa: E501
 
 
 @pytest.fixture
