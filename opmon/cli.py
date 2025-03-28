@@ -188,6 +188,14 @@ def run(
             continue
 
         experiment = experiments.with_slug(external_config.slug)
+        if experiment is None:
+            logger.exception(
+                str(f"Invalid experiment {external_config.slug}"),
+                exc_info=None,
+                extra={"experiment": external_config.slug},
+            )
+            continue
+
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
         platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
@@ -394,6 +402,14 @@ def backfill(
             continue
 
         experiment = experiments.with_slug(external_config.slug)
+        if experiment is None:
+            logger.exception(
+                str(f"Invalid experiment {external_config.slug}"),
+                exc_info=None,
+                extra={"experiment": external_config.slug},
+            )
+            continue
+
         platform = external_config.spec.project.platform or experiment.app_name or DEFAULT_PLATFORM
         platform_definitions = ConfigLoader.configs.get_platform_definitions(platform)
 
