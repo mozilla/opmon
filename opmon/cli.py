@@ -188,6 +188,14 @@ def run(
             continue
 
         experiment = experiments.with_slug(external_config.slug)
+        if external_config.spec.project.platform is None and experiment is None:
+            logger.info(
+                str(f"No platform defined for {external_config.slug}"),
+                exc_info=None,
+                extra={"experiment": external_config.slug},
+            )
+            continue
+
         platform = (
             external_config.spec.project.platform
             or (experiment is not None and experiment.app_name)
@@ -398,6 +406,14 @@ def backfill(
             continue
 
         experiment = experiments.with_slug(external_config.slug)
+        if external_config.spec.project.platform is None and experiment is None:
+            logger.info(
+                str(f"No platform defined for {external_config.slug}"),
+                exc_info=None,
+                extra={"experiment": external_config.slug},
+            )
+            continue
+
         platform = (
             external_config.spec.project.platform
             or (experiment is not None and experiment.app_name)
