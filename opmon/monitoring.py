@@ -1,5 +1,6 @@
 """Generate and run the Operational Monitoring Queries."""
 
+import copy
 import itertools
 import os
 import re
@@ -124,7 +125,7 @@ class Monitoring:
 
         table_name = f"{self.normalized_slug}_v{SCHEMA_VERSIONS['metric']}"
 
-        join_keys = METRICS_JOIN_KEYS
+        join_keys = copy.deepcopy(METRICS_JOIN_KEYS)
         for dimension in self.config.dimensions:
             join_keys.append(dimension.name)
 

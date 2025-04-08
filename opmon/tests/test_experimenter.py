@@ -6,12 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 import pytz
 
-from opmon.experimenter import (
-    Branch,
-    Experiment,
-    ExperimentCollection,
-    ExperimentV8,
-)
+from opmon.experimenter import Branch, Experiment, ExperimentCollection, ExperimentV8
 
 EXPERIMENTER_FIXTURE_V8 = r"""
 [
