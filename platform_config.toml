@@ -33,10 +33,10 @@ app_id = { release = "org.mozilla.klar" }
 is_glean_app = true
 app_id = { release = "org.mozilla.focus", beta = "org.mozilla.focus.beta", nightly = "org.mozilla.focus.nightly" }
 
-# Disabled until web analysis is better understood.
-# [platform.monitor_cirrus]
-# is_glean_app = true
-# app_id = { release = "monitor.cirrus" }
+Disabled until web analysis is better understood.
+[platform.monitor_cirrus]
+is_glean_app = true
+app_id = { release = "monitor.cirrus" }
 
 [platform.mozilla_vpn]
 is_glean_app = true
