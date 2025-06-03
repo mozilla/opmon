@@ -229,8 +229,12 @@ def run(
         configs.append((external_config.slug, spec.resolve(experiment, ConfigLoader.configs)))
 
     # prepare rollouts that do not have an external config
-    if slug is None:
-        rollouts = experiments.rollouts().experiments
+    rollouts = experiments.rollouts().experiments
+    rollout_slugs = [rollout.normandy_slug for rollout in rollouts]
+    if slug is None or (slug is not None and slug in rollout_slugs):
+        if slug is not None:
+            rollouts = [r for r in rollouts if r.normandy_slug == slug]
+
         for rollout in rollouts:
             if not any([c[0] == rollout.normandy_slug for c in configs]):
                 platform = rollout.app_name or DEFAULT_PLATFORM
