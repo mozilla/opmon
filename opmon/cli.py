@@ -13,6 +13,7 @@ from typing import Iterable, Optional, Tuple
 import click
 import pytz
 from click_option_group import RequiredAnyOptionGroup, optgroup
+from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import bigquery
 from metric_config_parser.config import DEFAULTS_DIR, DEFINITIONS_DIR, entity_from_path
 from metric_config_parser.monitoring import MonitoringConfiguration, MonitoringSpec
@@ -104,6 +105,15 @@ private_config_repos_option = click.option(
     help="URLs to private repos with configs",
     multiple=True,
 )
+
+
+def is_authenticated():
+    """Check if the user is authenticated to GCP."""
+    try:
+        bigquery.Client(project="")
+    except DefaultCredentialsError:
+        return False
+    return True
 
 
 @click.group()
@@ -654,6 +664,10 @@ def validate_config(
     path: Iterable[os.PathLike], config_repos, private_config_repos, sql_output_dir
 ):
     """Validate config files."""
+    if not is_authenticated():
+        click.echo("Not authenticated to GCP. Run `gcloud auth login  --update-adc` to login.")
+        sys.exit(1)
+
     dirty = False
     ConfigLoader.with_configs_from(config_repos).with_configs_from(
         private_config_repos, is_private=True
