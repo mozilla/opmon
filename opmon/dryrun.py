@@ -36,7 +36,7 @@ class DryRunFailedError(Exception):
         super().__init__(error)
 
 
-def dry_run_query(sql: Union[str, List[str]]) -> None:
+def dry_run_query(sql: Union[str, List[str]]) -> int:
     """Dry run the provided SQL query."""
     if isinstance(sql, list):
         for query in sql:
