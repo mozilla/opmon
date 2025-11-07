@@ -13,6 +13,7 @@ data, we proxy the queries through the dry run service endpoint.
 
 import json
 import logging
+import os
 from typing import Any, List, Union
 
 import google.auth
@@ -23,7 +24,9 @@ from google.oauth2.id_token import fetch_id_token
 
 logger = logging.getLogger(__name__)
 
-DRY_RUN_URL = "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/bigquery-etl-dryrun"
+DRY_RUN_URL = (
+    "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/bigquery-etl-dryrun"
+)
 
 
 class DryRunFailedError(Exception):
@@ -42,24 +45,36 @@ def dry_run_query(sql: Union[str, List[str]]) -> None:
             dry_run_query(sql)
         return
     try:
-        auth_req = GoogleAuthRequest()
-        creds, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        creds.refresh(auth_req)
-        if hasattr(creds, "id_token"):
-            # Get token from default credentials for the
-            # current environment created via Cloud SDK run
-            id_token = creds.id_token
-        else:
-            # If the environment variable GOOGLE_APPLICATION_CREDENTIALS
-            # is set to service account JSON file,
-            # then ID token is acquired using this service account credentials.
-            id_token = fetch_id_token(auth_req, DRY_RUN_URL)
+        # look for token created by the GitHub Actions workflow
+        id_token = os.environ.get("GOOGLE_GHA_ID_TOKEN")
+        if not id_token:
+            auth_req = GoogleAuthRequest()
+            creds, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            creds.refresh(auth_req)
+            if hasattr(creds, "id_token"):
+                # Get token from default credentials for the
+                # current environment created via Cloud SDK run
+                id_token = creds.id_token
+            else:
+                # If the environment variable GOOGLE_APPLICATION_CREDENTIALS
+                # is set to service account JSON file,
+                # then ID token is acquired using this service account credentials.
+                id_token = fetch_id_token(auth_req, DRY_RUN_URL)
 
         r = requests.post(
             DRY_RUN_URL,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {id_token}"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {id_token}",
+            },
             data=json.dumps(
-                {"dataset": "mozanalysis", "project": "moz-fx-data-experiments", "query": sql}
+                {
+                    "dataset": "mozanalysis",
+                    "project": "moz-fx-data-experiments",
+                    "query": sql,
+                }
             ).encode("utf8"),
         )
         response = r.json()
@@ -74,7 +89,7 @@ def dry_run_query(sql: Union[str, List[str]]) -> None:
 
     if response["valid"]:
         logger.info("Dry run OK")
-        return
+        return int(response.get("bytesProcessed", -1))
 
     if "errors" in response and len(response["errors"]) == 1:
         error = response["errors"][0]
@@ -91,6 +106,8 @@ def dry_run_query(sql: Union[str, List[str]]) -> None:
         # we expect CREATE VIEW and CREATE TABLE to throw specific
         # exceptions.
         logger.info("Dry run OK")
-        return
+        return int(response.get("bytesProcessed", -1))
 
-    raise DryRunFailedError((error and error.get("message", None)) or response["errors"], sql=sql)
+    raise DryRunFailedError(
+        (error and error.get("message", None)) or response["errors"], sql=sql
+    )
