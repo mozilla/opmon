@@ -474,8 +474,8 @@ class Monitoring:
                     },
                 )
         bytes_processed_metrics = dry_run_query(metrics_sql)
-        logger.info(metrics_sql)
         if bytes_processed_metrics and bytes_processed_metrics > 0:
+            logger.info(metrics_sql)
             tb_processed = bytes_processed_metrics / 1024 / 1024 / 1024 / 1024
             logger.info(f"Metrics query will process {round(tb_processed, 2)} TB")
 
@@ -548,8 +548,8 @@ class Monitoring:
                 },
             )
         bytes_processed_statistics = dry_run_query(statistics_sql)
-        logger.info(statistics_sql)
         if bytes_processed_statistics and bytes_processed_statistics > 0:
+            logger.info(statistics_sql)
             tb_processed = bytes_processed_statistics / 1024 / 1024 / 1024 / 1024
             logger.info(f"Statistics query will process {round(tb_processed, 2)} TB")
 
@@ -607,7 +607,7 @@ class Monitoring:
                     },
                 )
             bytes_processed_alerts = dry_run_query(alerts_sql)
-            logger.info(alerts_sql)
             if bytes_processed_alerts and bytes_processed_alerts > 0:
+                logger.info(alerts_sql)
                 tb_processed = bytes_processed_alerts / 1024 / 1024 / 1024 / 1024
                 logger.info(f"Alerts query will process {round(tb_processed, 2)} TB")

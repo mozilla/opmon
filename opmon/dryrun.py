@@ -41,7 +41,7 @@ def dry_run_query(sql: Union[str, List[str]]) -> int:
     if isinstance(sql, list):
         for query in sql:
             dry_run_query(sql)
-        return
+        return -1
     try:
         # look for token created by the GitHub Actions workflow
         id_token = os.environ.get("GOOGLE_GHA_ID_TOKEN")
