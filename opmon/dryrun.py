@@ -24,9 +24,7 @@ from google.oauth2.id_token import fetch_id_token
 
 logger = logging.getLogger(__name__)
 
-DRY_RUN_URL = (
-    "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/bigquery-etl-dryrun"
-)
+DRY_RUN_URL = "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/bigquery-etl-dryrun"
 
 
 class DryRunFailedError(Exception):
@@ -108,6 +106,4 @@ def dry_run_query(sql: Union[str, List[str]]) -> None:
         logger.info("Dry run OK")
         return int(response.get("bytesProcessed", -1))
 
-    raise DryRunFailedError(
-        (error and error.get("message", None)) or response["errors"], sql=sql
-    )
+    raise DryRunFailedError((error and error.get("message", None)) or response["errors"], sql=sql)
