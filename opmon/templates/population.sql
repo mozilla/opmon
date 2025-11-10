@@ -24,7 +24,7 @@ WITH population AS (
           {% endif -%}
           "{{ slug }}"
         ).branch AS branch,
-        {% elif config.population.boolean_pref and config.population.branches is none -%}
+        {% elif config.population.boolean_pref and (config.population.branches is none or config.population.branches|length == 0) -%}
         CASE
           WHEN SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'enabled'
           WHEN NOT SAFE_CAST({{ config.population.boolean_pref }} as BOOLEAN) THEN 'disabled'
