@@ -230,7 +230,7 @@ class TotalRatio(Statistic):
             STRUCT(
                 "{metric.name}" AS metric,
                 "{self.name()}" AS statistic,
-                SUM({metric.name}) / SUM({self.denominator_metric}) AS point,
+                SAFE_DIVIDE(SUM({metric.name}), SUM({self.denominator_metric})) AS point,
                 NULL AS lower,
                 NULL AS upper,
                 '{self.denominator_metric}' AS parameter
