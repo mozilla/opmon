@@ -230,7 +230,7 @@ class TotalRatio(Statistic):
             STRUCT(
                 "{metric.name}" AS metric,
                 "{self.name()}" AS statistic,
-                SUM({metric.name}) / SUM({self.denominator_metric}) AS point,
+                SAFE_DIVIDE(SUM({metric.name}), SUM({self.denominator_metric})) AS point,
                 NULL AS lower,
                 NULL AS upper,
                 '{self.denominator_metric}' AS parameter
@@ -257,7 +257,9 @@ class Summary:
                 break
 
         if not found:
-            raise ValueError(f"Statistic '{summary_config.statistic.name}' does not exist.")
+            raise ValueError(
+                f"Statistic '{summary_config.statistic.name}' does not exist."
+            )
 
         stats_params = copy.deepcopy(summary_config.statistic.params)
 
