@@ -257,9 +257,7 @@ class Summary:
                 break
 
         if not found:
-            raise ValueError(
-                f"Statistic '{summary_config.statistic.name}' does not exist."
-            )
+            raise ValueError(f"Statistic '{summary_config.statistic.name}' does not exist.")
 
         stats_params = copy.deepcopy(summary_config.statistic.params)
 
