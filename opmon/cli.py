@@ -78,7 +78,10 @@ config_file_option = click.option(
 )
 
 parallelism_option = click.option(
-    "--parallelism", "-p", help="Number of processes to run monitoring analysis", default=8
+    "--parallelism",
+    "-p",
+    help="Number of processes to run monitoring analysis",
+    default=8,
 )
 
 sql_output_dir_option = click.option(
@@ -130,7 +133,10 @@ def is_authenticated():
     help="Dataset to write logs to",
 )
 @click.option(
-    "--log_table_id", "--log-table-id", default="opmon_logs_v1", help="Table to write logs to"
+    "--log_table_id",
+    "--log-table-id",
+    default="opmon_logs_v1",
+    help="Table to write logs to",
 )
 @click.option("--log_to_bigquery", "--log-to-bigquery", is_flag=True, default=False)
 @click.pass_context
@@ -479,7 +485,10 @@ def backfill(
                     platform_defaults = ConfigLoader.configs.get_platform_defaults("rollout")
                     if platform_defaults is not None:
                         spec.merge(platform_defaults)
-                config = (rollout.normandy_slug, spec.resolve(rollout, ConfigLoader.configs))
+                config = (
+                    rollout.normandy_slug,
+                    spec.resolve(rollout, ConfigLoader.configs),
+                )
                 break
 
     # determine backfill time frame based on start and end dates
@@ -621,14 +630,16 @@ def preview(
     # delete previously created preview tables if exist
     client = bigquery.client.Client(project_id)
     client.delete_table(
-        f"{project_id}.{dataset_id}.{table}_{SCHEMA_VERSIONS['metric']}", not_found_ok=True
+        f"{project_id}.{dataset_id}.{table}_{SCHEMA_VERSIONS['metric']}",
+        not_found_ok=True,
     )
     client.delete_table(
         f"{project_id}.{dataset_id}.{table}_statistics_{SCHEMA_VERSIONS['statistic']}",
         not_found_ok=True,
     )
     client.delete_table(
-        f"{project_id}.{dataset_id}.{table}_alerts_{SCHEMA_VERSIONS['alert']}", not_found_ok=True
+        f"{project_id}.{dataset_id}.{table}_alerts_{SCHEMA_VERSIONS['alert']}",
+        not_found_ok=True,
     )
 
     ctx.invoke(
@@ -650,7 +661,7 @@ def preview(
 
     click.echo(
         "A preview is available at: "
-        + f"{LOOKER_PREVIEW_URL}?Table='{project_id}.{dataset_id}.{table}_statistics'"
+        + f"{LOOKER_PREVIEW_URL}?Table={project_id}.{dataset_id}.{table}_statistics"
         + f"&Submission+Date={start_date_str}+to+{end_date_str}"
     )
 
@@ -743,7 +754,7 @@ def validate_config(
             except DryRunFailedError as e:
                 print("Error evaluating SQL:")
                 for i, line in enumerate(e.sql.split("\n")):
-                    print(f"{i+1: 4d} {line.rstrip()}")
+                    print(f"{i + 1: 4d} {line.rstrip()}")
                 print("")
                 print(str(e))
                 dirty = True
