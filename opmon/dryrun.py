@@ -24,7 +24,7 @@ from google.oauth2.id_token import fetch_id_token
 
 logger = logging.getLogger(__name__)
 
-DRY_RUN_URL = "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/bigquery-etl-dryrun"
+DRY_RUN_URL = "https://us-central1-moz-fx-data-shared-prod.cloudfunctions.net/dryrun"
 
 
 class DryRunFailedError(Exception):
