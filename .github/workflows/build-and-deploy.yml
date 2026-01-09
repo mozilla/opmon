@@ -18,7 +18,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.10.8
+        python-version: 3.11
     - name: restore_cache
       uses: actions/cache@v3
       with:
@@ -31,7 +31,7 @@ jobs:
           python-packages-v1-
     - name: Build
       run: |-
-        python3.10 -m venv venv/
+        python -m venv venv/
         venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
     - name: PyTest
       run: venv/bin/pytest --black --pydocstyle --ignore=opmon/tests/integration/
@@ -43,7 +43,7 @@ jobs:
       run: venv/bin/mypy opmon
     - name: Build
       run: |-
-        python3.10 -m venv venv/
+        python -m venv venv/
         venv/bin/pip install --progress-bar off --upgrade -r requirements.txt
     - name: Build the Docker image
       if: github.ref == 'refs/heads/main'
