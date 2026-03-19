@@ -484,9 +484,7 @@ class Monitoring:
             if summary.metric.name not in dummy_metrics:
                 dummy_metrics[summary.metric.name] = "1"
                 if summary.metric.type == "histogram":
-                    dummy_metrics[
-                        summary.metric.name
-                    ] = """
+                    dummy_metrics[summary.metric.name] = """
                         [STRUCT(
                             3 AS bucket_count,
                             4 AS histogram_type,

@@ -24,8 +24,7 @@ class TestMonitoring:
         assert monitoring.normalized_slug == "test_foo"
 
     def test_check_runnable(self):
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = ["test"]
 
@@ -40,8 +39,7 @@ class TestMonitoring:
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",
@@ -54,8 +52,7 @@ class TestMonitoring:
         with pytest.raises(errors.NoStartDateException):
             monitoring._check_runnable()
 
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = ["test"]
             start_date = "2022-01-01"
@@ -72,8 +69,7 @@ class TestMonitoring:
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",
@@ -86,8 +82,7 @@ class TestMonitoring:
         with pytest.raises(errors.EndedException):
             monitoring._check_runnable(current_date=datetime(2022, 2, 1, tzinfo=pytz.utc))
 
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = ["test"]
             start_date = "2022-01-01"
@@ -104,8 +99,7 @@ class TestMonitoring:
             [data_sources]
             [data_sources.foo]
             from_expression = "test"
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",
@@ -120,12 +114,10 @@ class TestMonitoring:
         )
 
     def test_get_metrics_sql_no_metrics(self):
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = []
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",
@@ -140,8 +132,7 @@ class TestMonitoring:
         )
 
     def test_get_metrics_sql(self):
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = ["test"]
             start_date = "2022-01-01"
@@ -162,8 +153,7 @@ class TestMonitoring:
             [data_sources]
             [data_sources.foo]
             from_expression = "test_data_source"
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",
@@ -178,8 +168,7 @@ class TestMonitoring:
         assert "test_data_source" in sql
 
     def test_get_metric_fenix_sql(self):
-        config_str = dedent(
-            """
+        config_str = dedent("""
             [project]
             metrics = ["test"]
             start_date = "2022-01-01"
@@ -203,8 +192,7 @@ class TestMonitoring:
             [data_sources.foo]
             from_expression = "{dataset}.test"
             default_dataset = "test"
-            """
-        )
+            """)
         spec = MonitoringSpec.from_dict(toml.loads(config_str))
         monitoring = Monitoring(
             project="test",

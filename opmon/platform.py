@@ -31,8 +31,7 @@ class Platform:
         if not value and str(value).lower() == "none":
             raise PlatformConfigurationException(
                 "'%s' attribute requires a value, please double check \
-                    platform configuration file. Value provided: %s"
-                % (attribute.name, str(value))
+                    platform configuration file. Value provided: %s" % (attribute.name, str(value))
             )
 
     app_name: str = attr.ib(validator=_check_value_not_null)
