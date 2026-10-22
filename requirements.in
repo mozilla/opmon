@@ -4,8 +4,10 @@
 #
 #    update_deps
 #
-annotated-types==0.7.0
+annotated-types==0.8.0
     # via pydantic
+ast-serialize==0.13.1
+    # via mypy
 attrs==26.1.0
     # via
     #   cattrs
@@ -13,19 +15,19 @@ attrs==26.1.0
     #   mozilla-metric-config-parser
     #   mozilla-opmon
     #   referencing
-black==26.3.1
+black==26.10.1
     # via pytest-black
-cattrs==26.1.0
+cattrs==26.2.1
     # via
     #   mozilla-metric-config-parser
     #   mozilla-opmon
-certifi==2026.2.25
+certifi==2026.10.19
     # via requests
-cffi==2.0.0
+cffi==2.1.1
     # via cryptography
-charset-normalizer==3.4.6
+charset-normalizer==3.5.2
     # via requests
-click==8.3.1
+click==8.5.0
     # via
     #   black
     #   click-option-group
@@ -33,55 +35,55 @@ click==8.3.1
     #   mozilla-opmon
 click-option-group==0.5.9
     # via mozilla-opmon
-coverage[toml]==7.13.5
+coverage[toml]==7.17.0
     # via
     #   mozilla-opmon
     #   pytest-cov
-cryptography==46.0.5
+cryptography==50.0.2
     # via google-auth
-faker==40.11.0
+faker==40.43.0
     # via polyfactory
-flake8==7.3.0
+flake8==7.4.1
     # via mozilla-opmon
 gitdb==4.0.12
     # via gitpython
-gitpython==3.1.46
+gitpython==3.2.1
     # via
     #   mozilla-metric-config-parser
     #   mozilla-opmon
-google-api-core[grpc]==2.30.0
+google-api-core[grpc]==2.42.0
     # via
     #   google-cloud-bigquery
     #   google-cloud-core
-google-auth==2.49.1
+google-auth[pyopenssl]==2.62.0
     # via
     #   google-api-core
     #   google-cloud-bigquery
     #   google-cloud-core
-google-cloud-bigquery==3.40.1
+google-cloud-bigquery==3.46.2
     # via mozilla-opmon
-google-cloud-core==2.5.0
+google-cloud-core==2.8.0
     # via google-cloud-bigquery
-google-crc32c==1.8.0
+google-crc32c==1.9.0
     # via google-resumable-media
-google-resumable-media==2.8.0
+google-resumable-media==2.11.0
     # via google-cloud-bigquery
-googleapis-common-protos==1.73.0
+googleapis-common-protos==1.75.5
     # via
     #   google-api-core
     #   grpcio-status
-grpcio==1.78.0
+grpcio==1.84.1
     # via
     #   google-api-core
     #   grpcio-status
     #   mozilla-opmon
-grpcio-status==1.78.0
+grpcio-status==1.84.1
     # via google-api-core
-idna==3.11
+idna==3.20
     # via requests
-iniconfig==2.3.0
+iniconfig==2.3.1
     # via pytest
-isort==8.0.1
+isort==9.0.2
     # via mozilla-opmon
 jinja2==3.1.6
     # via
@@ -93,66 +95,69 @@ jsonschema==4.26.0
     #   mozilla-opmon
 jsonschema-specifications==2025.9.1
     # via jsonschema
-librt==0.8.1
+librt==0.16.0
     # via mypy
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via jinja2
 mccabe==0.7.0
     # via flake8
-mozilla-metric-config-parser==2026.1.1
+mozilla-metric-config-parser==2026.10.1
     # via mozilla-opmon
-mozilla-nimbus-schemas==3001.0.0
+mozilla-nimbus-schemas==3006.0.0
     # via mozilla-metric-config-parser
-mypy==1.19.1
+mypy==2.4.0
     # via mozilla-opmon
 mypy-extensions==1.1.0
     # via
     #   black
+    #   isort
     #   mypy
-packaging==26.0
+opentelemetry-api==1.45.1
+    # via google-api-core
+packaging==26.3
     # via
     #   black
     #   google-cloud-bigquery
     #   pytest
-pathspec==1.0.4
+pathspec==1.1.1
     # via
     #   black
     #   mypy
-platformdirs==4.9.4
+platformdirs==4.13.5
     # via black
-pluggy==1.6.0
+pluggy==1.7.0
     # via
     #   pytest
     #   pytest-cov
 polyfactory==2.22.5
     # via mozilla-nimbus-schemas
-proto-plus==1.27.1
+proto-plus==1.29.0
     # via google-api-core
-protobuf==6.33.6
+protobuf==7.36.2
     # via
     #   google-api-core
     #   googleapis-common-protos
     #   grpcio-status
     #   proto-plus
-pyasn1==0.6.3
+pyasn1==0.6.4
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
-pycodestyle==2.14.0
+pycodestyle==2.15.0
     # via flake8
-pycparser==3.0
+pycparser==3.12
     # via cffi
-pydantic==2.12.5
+pydantic==2.14.1
     # via mozilla-nimbus-schemas
-pydantic-core==2.41.5
+pydantic-core==2.50.1
     # via pydantic
 pydocstyle==6.3.0
     # via pytest-pydocstyle
-pyflakes==3.4.0
+pyflakes==4.0.3
     # via flake8
-pygments==2.19.2
+pygments==2.21.0
     # via pytest
-pytest==9.0.2
+pytest==9.1.1
     # via
     #   mozilla-opmon
     #   pytest-black
@@ -160,7 +165,7 @@ pytest==9.0.2
     #   pytest-pydocstyle
 pytest-black==0.6.0
     # via mozilla-opmon
-pytest-cov==7.0.0
+pytest-cov==7.1.0
     # via mozilla-opmon
 pytest-pydocstyle==2.4.0
     # via mozilla-opmon
@@ -168,7 +173,7 @@ python-dateutil==2.9.0.post0
     # via google-cloud-bigquery
 pytokens==0.4.1
     # via black
-pytz==2026.1.post1
+pytz==2026.5
     # via
     #   mozilla-metric-config-parser
     #   mozilla-opmon
@@ -176,13 +181,13 @@ referencing==0.37.0
     # via
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.5
+requests==2.34.2
     # via
     #   google-api-core
     #   google-cloud-bigquery
     #   mozilla-metric-config-parser
     #   mozilla-opmon
-rpds-py==0.30.0
+rpds-py==2026.9.1
     # via
     #   jsonschema
     #   referencing
@@ -190,7 +195,7 @@ six==1.17.0
     # via python-dateutil
 smmap==5.0.3
     # via gitdb
-snowballstemmer==3.0.1
+snowballstemmer==3.1.1
     # via pydocstyle
 toml==0.10.2
     # via
@@ -199,34 +204,34 @@ toml==0.10.2
     #   pytest-black
 types-futures==3.3.8
     # via mozilla-opmon
-types-protobuf==6.32.1.20260221
+types-protobuf==7.35.1.20260906
     # via mozilla-opmon
-types-pytz==2026.1.1.20260304
+types-pytz==2026.5.0.20261006
     # via mozilla-opmon
-types-pyyaml==6.0.12.20250915
+types-pyyaml==6.0.12.20260906
     # via mozilla-opmon
-types-requests==2.32.4.20260107
+types-requests==2.33.0.20261006
     # via mozilla-opmon
-types-setuptools==82.0.0.20260210
+types-setuptools==84.0.0.20261006
     # via mozilla-opmon
-types-six==1.17.0.20251009
+types-six==1.17.0.20261008
     # via mozilla-opmon
-types-toml==0.10.8.20240310
+types-toml==0.10.8.20260518
     # via mozilla-opmon
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   cattrs
     #   grpcio
     #   mozilla-nimbus-schemas
     #   mypy
+    #   opentelemetry-api
     #   polyfactory
     #   pydantic
     #   pydantic-core
-    #   referencing
     #   typing-inspection
-typing-inspection==0.4.2
+typing-inspection==0.4.4
     # via pydantic
-urllib3==2.6.3
+urllib3==2.8.0
     # via
     #   requests
     #   types-requests
